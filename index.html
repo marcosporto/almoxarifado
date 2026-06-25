@@ -164,7 +164,7 @@
   .pk-loc{ font-size:11px; font-weight:bold; color:#fff; background:var(--verde); padding:2px 8px; border-radius:5px; display:inline-block; margin-bottom:3px; }
   .pk-desc{ font-size:14px; font-weight:bold; line-height:1.25; }
   .pk-qty{ font-size:12px; color:var(--cinza-500); }
-  .pk-del{ background:none; border:none; color:var(--vermelho); font-size:18px; cursor:pointer; }
+  .pk-del{ background:none; border:none; color:var(--vermelho); cursor:pointer; padding:6px; display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
 
   #loading{ text-align:center; padding:50px 20px; color:var(--cinza-500); }
   #empty{ text-align:center; padding:40px 20px; color:var(--cinza-300); font-size:15px; }
@@ -296,10 +296,11 @@
 /* =========================================================================
    Almoxarifado UDESC — app offline-first
    ========================================================================= */
-const APP_VERSION = 'v17';
+const APP_VERSION = 'v18';
 
 /* Ícones de leitura (SVG inline, herdam a cor via currentColor) */
 const ICON_QR = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6.5v3h-3v-3h3M11 5H5v6h6V5zm-1.5 9.5v3h-3v-3h3M11 13H5v6h6v-6zm6.5-6.5v3h-3v-3h3M19 5h-6v6h6V5zm-6 8h1.5v1.5H13V13zm1.5 1.5H16V16h-1.5v-1.5zM16 13h1.5v1.5H16V13zm-3 3h1.5v1.5H13V16zm1.5 1.5H16V19h-1.5v-1.5zM16 16h1.5v1.5H16V16zm1.5-1.5H19V16h-1.5v-1.5zm0 3H19V19h-1.5v-1.5zM22 7h-2V4h-3V2h5v5zm0 15v-5h-2v3h-3v2h5zM2 22h5v-2H4v-3H2v5zM2 2v5h2V4h3V2H2z"/></svg>';
+const ICON_TRASH = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg>';
 const URL_KEY = 'almox_script_url';
 let scriptUrl = localStorage.getItem(URL_KEY) || '';
 let items = [];                 // dados em memória (snapshot mesclado com edições)
@@ -869,12 +870,16 @@ function renderPick(){
     const d=document.createElement('div'); d.className='pick-item'+(p.checked?' checked':'');
     d.innerHTML=`<input type="checkbox" class="pk-check" ${p.checked?'checked':''} onchange="togglePick(${idx})">
       <div class="pk-body"><span class="pk-loc">${esc(p.localizacao)||'s/ local'}</span><div class="pk-desc">${esc(p.descricao)}</div><div class="pk-qty">Qtd: ${p.qtd}</div></div>
-      <button class="pk-del" onclick="delPick(${idx})">🗑</button>`;
+      <button class="pk-del" onclick="delPick(${idx})" title="Remover item">${ICON_TRASH}</button>`;
     el.appendChild(d);
   });
 }
 function togglePick(i){ pick[i].checked=!pick[i].checked; savePick(); renderPick(); }
-function delPick(i){ pick.splice(i,1); savePick(); renderPick(); }
+async function delPick(i){
+  const p=pick[i]; if(!p) return;
+  if(!await confirmDialog('Remover "'+p.descricao+'" da lista de separação?', {title:'Remover item', okText:'Remover', danger:true})) return;
+  const idx=pick.indexOf(p); if(idx>=0){ pick.splice(idx,1); savePick(); renderPick(); }
+}
 async function clearPick(){ if(await confirmDialog('Isso vai remover todos os itens da lista de separação.', {title:'Limpar lista', okText:'Limpar', danger:true})){ pick=[]; savePick(); renderPick(); } }
 
 /* ---------- Utils ---------- */
