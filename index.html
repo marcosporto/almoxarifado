@@ -220,8 +220,8 @@
 <!-- Modal: Scanner QR -->
 <div class="modal" id="modal-scan">
   <div class="sheet">
-    <h2 class="titulo">Ler QR da localização</h2>
-    <p class="hint">Aponte para o QR Code da prateleira/gaveta. Os itens daquele local serão filtrados.</p>
+    <h2 class="titulo" id="scan-title">Ler QR da localização</h2>
+    <p class="hint" id="scan-hint">Aponte para o QR Code da prateleira/gaveta. Os itens daquele local serão filtrados.</p>
     <div id="reader"></div>
     <div class="row-btns" style="margin-top:14px">
       <button class="btn btn-grey" onclick="closeModal('scan')">Fechar</button>
@@ -255,7 +255,7 @@
 /* =========================================================================
    Almoxarifado UDESC — app offline-first
    ========================================================================= */
-const APP_VERSION = 'v12';
+const APP_VERSION = 'v13';
 
 /* Ícones de leitura (SVG inline, herdam a cor via currentColor) */
 const ICON_QR = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6.5v3h-3v-3h3M11 5H5v6h6V5zm-1.5 9.5v3h-3v-3h3M11 13H5v6h6v-6zm6.5-6.5v3h-3v-3h3M19 5h-6v6h6V5zm-6 8h1.5v1.5H13V13zm1.5 1.5H16V16h-1.5v-1.5zM16 13h1.5v1.5H16V13zm-3 3h1.5v1.5H13V16zm1.5 1.5H16V19h-1.5v-1.5zM16 16h1.5v1.5H16V16zm1.5-1.5H19V16h-1.5v-1.5zm0 3H19V19h-1.5v-1.5zM22 7h-2V4h-3V2h5v5zm0 15v-5h-2v3h-3v2h5zM2 22h5v-2H4v-3H2v5zM2 2v5h2V4h3V2H2z"/></svg>';
@@ -460,13 +460,13 @@ function card(it){
       <div class="field"><label>Código de barras</label>
         <div class="field-scan">
           <input id="barras-${it.codigo}" value="${esc(it.codigoBarras)}" inputmode="numeric">
-          <button class="scan-btn" onclick="scanInto('barras-${it.codigo}')" title="Ler código de barras">${ICON_QR}</button>
+          <button class="scan-btn" onclick="scanInto('barras-${it.codigo}','barras')" title="Ler código de barras">${ICON_QR}</button>
         </div>
       </div>
       <div class="field"><label>Localização</label>
         <div class="field-scan">
           <input id="locx-${it.codigo}" value="${esc(it.localizacao)}" placeholder="Ex.: Prateleira 1">
-          <button class="scan-btn" onclick="scanInto('locx-${it.codigo}')" title="Ler QR Code">${ICON_QR}</button>
+          <button class="scan-btn" onclick="scanInto('locx-${it.codigo}','locField')" title="Ler QR Code">${ICON_QR}</button>
         </div>
       </div>
       <div class="row2">
@@ -657,9 +657,19 @@ function updateProgress(){
 }
 
 /* ---------- Scanner QR ---------- */
+// Título e dica do leitor conforme a função de onde foi acionado
+const SCAN_TEXTS = {
+  loc:      { title:'Ler QR da localização', hint:'Aponte para o QR Code da prateleira/gaveta. Os itens daquele local serão filtrados.' },
+  busca:    { title:'Buscar por leitura',    hint:'Aponte para o código de barras ou QR Code do item para localizá-lo na lista.' },
+  barras:   { title:'Ler código de barras',  hint:'Aponte para o código de barras do produto para preencher o campo.' },
+  locField: { title:'Ler QR da localização', hint:'Aponte para o QR Code da prateleira/gaveta para preencher a localização deste item.' }
+};
 let qr=null, scanCb=null;
-async function startScan(onResult){
+async function startScan(onResult, texts){
   scanCb = onResult || ((text)=>setLoc(text.trim()));   // sem argumento = filtra por localização
+  texts = texts || SCAN_TEXTS.loc;
+  document.getElementById('scan-title').textContent = texts.title;
+  document.getElementById('scan-hint').textContent  = texts.hint;
   openModal('scan');
   try{
     qr=new Html5Qrcode('reader');
@@ -668,9 +678,10 @@ async function startScan(onResult){
       ()=>{});
   }catch(e){ alert('Não foi possível abrir a câmera: '+e); closeModal('scan'); }
 }
-// Lê um QR/código e joga o valor num campo específico do card
-function scanInto(inputId){
-  startScan((text)=>{ const el=document.getElementById(inputId); if(el) el.value=text.trim(); });
+// Lê um QR/código e joga o valor num campo específico do card (kind define o texto)
+function scanInto(inputId, kind){
+  startScan((text)=>{ const el=document.getElementById(inputId); if(el) el.value=text.trim(); },
+    SCAN_TEXTS[kind] || SCAN_TEXTS.barras);
 }
 // Lê um QR/código de barras e busca por ele (código do item ou código de barras)
 function scanSearch(){
@@ -678,7 +689,7 @@ function scanSearch(){
     const el=document.getElementById('search-box');
     el.value=text.trim();
     render();
-  });
+  }, SCAN_TEXTS.busca);
 }
 
 /* ---------- Visualizador de imagem (lightbox) ---------- */
@@ -742,8 +753,8 @@ function imgFallback(el){ const fb=el.getAttribute('data-fb'); if(fb && el.src!=
 function natCmp(a,b){ return String(a||'').localeCompare(String(b||''),'pt',{numeric:true,sensitivity:'base'}); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function fmtDate(iso){ if(!iso) return ''; const p=iso.split('-'); return p.length===3? p[2]+'/'+p[1]+'/'+p[0] : iso; }
-// "1.0 - PECA" -> "unid. PECA" (mostra só o nome da unidade de distribuição)
-function fmtUnidade(u){ if(!u) return ''; const p=String(u).split('-'); const nome=(p.length>1?p[p.length-1]:p[0]).trim(); return nome?'unid. '+nome:''; }
+// "1.0 - PECA" -> "Unid.: PECA" (mostra só o nome da unidade de distribuição)
+function fmtUnidade(u){ if(!u) return ''; const p=String(u).split('-'); const nome=(p.length>1?p[p.length-1]:p[0]).trim(); return nome?'Unid.: '+nome:''; }
 
 /* ---------- Init ---------- */
 window.addEventListener('online', ()=>{ updateNet(); syncNow(); });
