@@ -138,6 +138,9 @@
   .sheet p.hint{ font-size:13px; color:var(--cinza-500); margin-bottom:14px; line-height:1.5; }
   .sheet input[type=url], .sheet input[type=text], .sheet input[type=number]{ width:100%; padding:12px; border:1.5px solid var(--cinza-300); border-radius:10px; font-size:15px; font-family:inherit; outline:none; margin-bottom:12px; }
   .sheet input:focus{ border-color:var(--verde); }
+  .sheet textarea{ width:100%; padding:12px; border:1.5px solid var(--cinza-300); border-radius:10px; font-size:15px; font-family:inherit; outline:none; margin-bottom:12px; resize:vertical; line-height:1.5; }
+  .sheet textarea:focus{ border-color:var(--verde); }
+  .imp-lbl{ display:block; font-size:12px; font-weight:bold; color:var(--cinza-500); margin-bottom:4px; }
   .row-btns{ display:flex; gap:10px; }
   .row-btns .btn{ flex:1; padding:13px; }
   .btn-grey{ background:var(--cinza-50); color:var(--cinza-500); border:1.5px solid var(--cinza-100); }
@@ -242,6 +245,7 @@
   <div class="sheet">
     <h2 class="titulo">Lista de separação</h2>
     <p class="hint">Adicione itens e quantidades. A rota é ordenada por localização para otimizar a coleta.</p>
+    <button class="btn btn-fields" style="margin-top:0;margin-bottom:14px" onclick="openImport()">Importar requisição</button>
     <input type="text" id="pick-search" placeholder="Buscar item para adicionar…" oninput="renderPickSearch()" autocomplete="off">
     <div id="pick-search-results" style="max-height:180px; overflow-y:auto; margin-bottom:12px"></div>
     <h3 class="titulo" style="font-size:14px; color:var(--verde-escuro); margin-bottom:6px">Rota de coleta (<span id="pick-count">0</span>)</h3>
@@ -256,6 +260,22 @@
 <!-- Visualizador de imagem -->
 <div class="modal" id="modal-img" onclick="closeModal('img')">
   <img id="lightbox-img" alt="">
+</div>
+
+<!-- Modal: Importar requisição (duas colunas: códigos e quantidades, casadas por linha) -->
+<div class="modal" id="modal-import">
+  <div class="sheet">
+    <h2 class="titulo">Importar requisição</h2>
+    <p class="hint">Cole a coluna de <b>códigos</b> e, abaixo, a de <b>quantidades</b> — na mesma ordem, uma por linha. As duas precisam ter o mesmo número de linhas.</p>
+    <label class="imp-lbl">Códigos dos itens</label>
+    <textarea id="import-cods" rows="6" placeholder="001414002&#10;001449011&#10;005320004"></textarea>
+    <label class="imp-lbl">Quantidades</label>
+    <textarea id="import-qts" rows="6" placeholder="25&#10;73&#10;11"></textarea>
+    <div class="row-btns">
+      <button class="btn btn-grey" onclick="closeModal('import')">Cancelar</button>
+      <button class="btn btn-green" onclick="doImport()">Adicionar à lista</button>
+    </div>
+  </div>
 </div>
 
 <!-- Caixa de confirmação personalizada (substitui o confirm() do navegador) -->
@@ -276,7 +296,7 @@
 /* =========================================================================
    Almoxarifado UDESC — app offline-first
    ========================================================================= */
-const APP_VERSION = 'v16';
+const APP_VERSION = 'v17';
 
 /* Ícones de leitura (SVG inline, herdam a cor via currentColor) */
 const ICON_QR = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6.5v3h-3v-3h3M11 5H5v6h6V5zm-1.5 9.5v3h-3v-3h3M11 13H5v6h6v-6zm6.5-6.5v3h-3v-3h3M19 5h-6v6h6V5zm-6 8h1.5v1.5H13V13zm1.5 1.5H16V16h-1.5v-1.5zM16 13h1.5v1.5H16V13zm-3 3h1.5v1.5H13V16zm1.5 1.5H16V19h-1.5v-1.5zM16 16h1.5v1.5H16V16zm1.5-1.5H19V16h-1.5v-1.5zm0 3H19V19h-1.5v-1.5zM22 7h-2V4h-3V2h5v5zm0 15v-5h-2v3h-3v2h5zM2 22h5v-2H4v-3H2v5zM2 2v5h2V4h3V2H2z"/></svg>';
@@ -335,7 +355,7 @@ function forceClose(id){
   if(el) el.classList.remove('open');
   const i=modalStack.lastIndexOf(id);
   if(i>=0) modalStack.splice(i,1);
-  if(id==='scan'){ stopScan(); if(_pendingAlert){ const a=_pendingAlert; _pendingAlert=null; alertDialog(a.msg, a.opts); } }
+  if(id==='scan') stopScan();
   if(id==='confirm' && _confirmResolve){
     const r=_confirmResolve; _confirmResolve=null;
     const out = _confirmMode==='prompt'
@@ -344,6 +364,8 @@ function forceClose(id){
     document.getElementById('confirm-input').style.display='none';
     r(out);
   }
+  // Aviso pendente: disparado depois que o modal de origem fecha (evita conflito de histórico)
+  else if(_pendingAlert){ const a=_pendingAlert; _pendingAlert=null; alertDialog(a.msg, a.opts); }
 }
 
 /* Confirmação personalizada (Promise<boolean>) — substitui o confirm() nativo.
@@ -801,6 +823,41 @@ async function addToPick(codigo){
   if(qtd===null || String(qtd).trim()==='') return;
   if(p) p.qtd=Number(qtd); else pick.push({ codigo, descricao:it.descricao, localizacao:it.localizacao, qtd:Number(qtd), checked:false });
   savePick(); document.getElementById('pick-search').value=''; document.getElementById('pick-search-results').innerHTML=''; renderPick();
+}
+
+/* ---------- Importar requisição (duas colunas: códigos e quantidades) ---------- */
+function openImport(){ document.getElementById('import-cods').value=''; document.getElementById('import-qts').value=''; openModal('import'); }
+function normCod(c){ return String(c==null?'':c).trim().replace(/^0+/,''); }   // ignora zeros à esquerda
+function findItemByCodigo(cod){
+  return items.find(it=>it.codigo===cod) || items.find(it=>normCod(it.codigo)===normCod(cod));
+}
+function linhas(id){ return document.getElementById(id).value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean); }
+function doImport(){
+  const cods=linhas('import-cods'), qts=linhas('import-qts');
+  if(!cods.length){ alertDialog('Cole pelo menos um código de item.', {title:'Importar requisição'}); return; }
+  // Trava de segurança: as duas colunas precisam ter o mesmo número de linhas (casamento por posição)
+  if(cods.length!==qts.length){
+    alertDialog('As colunas têm tamanhos diferentes:\n'+cods.length+' código(s) e '+qts.length+' quantidade(s).\n\nElas precisam ter o mesmo número de linhas, na mesma ordem. Confira e tente de novo.', {title:'Colunas não batem'});
+    return;
+  }
+  let add=0, upd=0; const erros=[];
+  for(let i=0;i<cods.length;i++){
+    const cod=cods[i].split(/[\s,;]+/)[0];
+    const m=String(qts[i]).replace(',','.').match(/-?\d+(\.\d+)?/);
+    const qtd=m?Number(m[0]):NaN;
+    if(!isFinite(qtd) || qtd<=0){ erros.push('Linha '+(i+1)+': quantidade inválida ("'+qts[i]+'")'); continue; }
+    const it=findItemByCodigo(cod);
+    if(!it){ erros.push('Linha '+(i+1)+': código não encontrado ("'+cod+'")'); continue; }
+    const p=pick.find(x=>x.codigo===it.codigo);
+    if(p){ p.qtd=qtd; upd++; }
+    else { pick.push({ codigo:it.codigo, descricao:it.descricao, localizacao:it.localizacao, qtd, checked:false }); add++; }
+  }
+  savePick();
+  let msg=add+' item(ns) adicionado(s)'+(upd?' e '+upd+' atualizado(s)':'')+' na lista de separação.';
+  if(erros.length) msg+='\n\nNão importados:\n'+erros.join('\n');
+  _pendingAlert={ msg, opts:{ title:'Importação concluída' } };
+  closeModal('import');   // ao fechar, mostra o resumo
+  renderPick();
 }
 function renderPick(){
   // rota otimizada: ordena pela localização (ordem natural sequencial)

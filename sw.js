@@ -2,7 +2,7 @@
  * Cacheia o "app shell" para funcionamento offline.
  * Os dados do inventário NÃO passam por aqui: ficam no IndexedDB (ver index.html).
  */
-const CACHE = 'almox-udesc-v16';
+const CACHE = 'almox-udesc-v17';
 const SHELL = [
   './',
   './index.html',
