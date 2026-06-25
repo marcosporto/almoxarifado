@@ -2,13 +2,14 @@
  * Cacheia o "app shell" para funcionamento offline.
  * Os dados do inventário NÃO passam por aqui: ficam no IndexedDB (ver index.html).
  */
-const CACHE = 'almox-udesc-v18';
+const CACHE = 'almox-udesc-v19';
 const SHELL = [
   './',
   './index.html',
   './manifest.json',
   './icon.svg',
-  'https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js'
+  'https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js',
+  'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'
 ];
 
 self.addEventListener('install', (e) => {

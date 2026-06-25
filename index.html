@@ -136,7 +136,7 @@
   .sheet{ background:#fff; border-radius:18px 18px 0 0; width:100%; max-width:560px; max-height:92vh; overflow-y:auto; padding:20px 18px 28px; }
   .sheet h2{ font-size:18px; color:var(--verde-escuro); margin-bottom:4px; }
   .sheet p.hint{ font-size:13px; color:var(--cinza-500); margin-bottom:14px; line-height:1.5; }
-  .sheet input[type=url], .sheet input[type=text], .sheet input[type=number]{ width:100%; padding:12px; border:1.5px solid var(--cinza-300); border-radius:10px; font-size:15px; font-family:inherit; outline:none; margin-bottom:12px; }
+  .sheet input[type=url], .sheet input[type=text], .sheet input[type=number], .sheet input[type=date], .sheet input[type=datetime-local]{ width:100%; padding:12px; border:1.5px solid var(--cinza-300); border-radius:10px; font-size:15px; font-family:inherit; outline:none; margin-bottom:12px; }
   .sheet input:focus{ border-color:var(--verde); }
   .sheet textarea{ width:100%; padding:12px; border:1.5px solid var(--cinza-300); border-radius:10px; font-size:15px; font-family:inherit; outline:none; margin-bottom:12px; resize:vertical; line-height:1.5; }
   .sheet textarea:focus{ border-color:var(--verde); }
@@ -213,6 +213,7 @@
   <button onclick="setFilter('todos')"><span class="i"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 2H4c-1 0-2 .9-2 2v3.01c0 .72.43 1.34 1 1.69V20c0 1.1 1.1 2 2 2h14c.9 0 2-.9 2-2V8.7c.57-.35 1-.97 1-1.69V4c0-1.1-1-2-2-2zm-5 12H9v-2h6v2zm5-7H4V4l16-.02V7z"/></svg></span>Itens</button>
   <button class="scan" onclick="startScan()"><span class="i"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6.5v3h-3v-3h3M11 5H5v6h6V5zm-1.5 9.5v3h-3v-3h3M11 13H5v6h6v-6zm6.5-6.5v3h-3v-3h3M19 5h-6v6h6V5zm-6 8h1.5v1.5H13V13zm1.5 1.5H16V16h-1.5v-1.5zM16 13h1.5v1.5H16V13zm-3 3h1.5v1.5H13V16zm1.5 1.5H16V19h-1.5v-1.5zM16 16h1.5v1.5H16V16zm1.5-1.5H19V16h-1.5v-1.5zm0 3H19V19h-1.5v-1.5zM22 7h-2V4h-3V2h5v5zm0 15v-5h-2v3h-3v2h5zM2 22h5v-2H4v-3H2v5zM2 2v5h2V4h3V2H2z"/></svg></span>Ler QR</button>
   <button onclick="openModal('pick')"><span class="i"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></span>Separação</button>
+  <button onclick="openModal('consumo')"><span class="i"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 3.5L18 2l-1.5 1.5L15 2l-1.5 1.5L12 2l-1.5 1.5L9 2 7.5 3.5 6 2 4.5 3.5 3 2v20l1.5-1.5L6 22l1.5-1.5L9 22l1.5-1.5L12 22l1.5-1.5L15 22l1.5-1.5L18 22l1.5-1.5L21 22V2l-1.5 1.5zM19 19.09H5V4.91h14v14.18zM6 15h12v2H6zm0-4h12v2H6zm0-4h12v2H6z"/></svg></span>Consumo</button>
 </div>
 
 <!-- Modal: Config -->
@@ -265,8 +266,12 @@
 <!-- Modal: Importar requisição (duas colunas: códigos e quantidades, casadas por linha) -->
 <div class="modal" id="modal-import">
   <div class="sheet">
-    <h2 class="titulo">Importar requisição</h2>
+    <h2 class="titulo" id="import-title">Importar requisição</h2>
     <p class="hint">Cole a coluna de <b>códigos</b> e, abaixo, a de <b>quantidades</b> — na mesma ordem, uma por linha. As duas precisam ter o mesmo número de linhas.</p>
+    <div id="import-solic-wrap" style="display:none">
+      <label class="imp-lbl">Solicitante</label>
+      <input type="text" id="import-solic" placeholder="Ex.: Chefe da limpeza">
+    </div>
     <label class="imp-lbl">Códigos dos itens</label>
     <textarea id="import-cods" rows="6" placeholder="001414002&#10;001449011&#10;005320004"></textarea>
     <label class="imp-lbl">Quantidades</label>
@@ -274,6 +279,63 @@
     <div class="row-btns">
       <button class="btn btn-grey" onclick="closeModal('import')">Cancelar</button>
       <button class="btn btn-green" onclick="doImport()">Adicionar à lista</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Consumo (registro de saídas + geração da planilha) -->
+<div class="modal" id="modal-consumo">
+  <div class="sheet">
+    <h2 class="titulo">Consumo</h2>
+    <p class="hint">Saídas de materiais. Registre retiradas avulsas, lance a requisição da limpeza e gere a planilha para o chefe geral.</p>
+    <button class="btn btn-green" style="width:100%;padding:13px;margin-bottom:10px" onclick="openSaida()">+ Registrar saída avulsa</button>
+    <div class="row-btns" style="margin-bottom:14px">
+      <button class="btn btn-grey" onclick="openImport('consumo')">Lançar requisição</button>
+      <button class="btn btn-fields" style="margin:0" onclick="openRelatorio()">Gerar planilha</button>
+    </div>
+    <h3 class="titulo" style="font-size:14px;color:var(--verde-escuro);margin-bottom:6px">Saídas recentes (<span id="consumo-count">0</span>)</h3>
+    <div id="consumo-list"></div>
+    <div class="row-btns" style="margin-top:16px">
+      <button class="btn btn-green" onclick="closeModal('consumo')">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Saída avulsa -->
+<div class="modal" id="modal-saida">
+  <div class="sheet">
+    <h2 class="titulo">Registrar saída avulsa</h2>
+    <label class="imp-lbl">Item</label>
+    <input type="text" id="saida-busca" placeholder="Buscar por código ou descrição…" oninput="renderSaidaBusca()" autocomplete="off">
+    <div id="saida-res" style="max-height:160px;overflow-y:auto;margin-bottom:8px"></div>
+    <div id="saida-sel" class="hint" style="margin-bottom:10px">Nenhum item selecionado.</div>
+    <label class="imp-lbl">Quantidade</label>
+    <input type="number" id="saida-qtd" inputmode="numeric" min="0" placeholder="Quantidade retirada">
+    <label class="imp-lbl">Solicitante</label>
+    <input type="text" id="saida-solic" placeholder="Nome de quem solicitou">
+    <label class="imp-lbl">Data e hora da retirada</label>
+    <input type="datetime-local" id="saida-data">
+    <label class="imp-lbl">Observação (opcional)</label>
+    <input type="text" id="saida-obs" placeholder="Observação">
+    <div class="row-btns" style="margin-top:6px">
+      <button class="btn btn-grey" onclick="closeModal('saida')">Cancelar</button>
+      <button class="btn btn-green" onclick="salvarSaida()">Registrar saída</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Gerar planilha (relatório de consumo) -->
+<div class="modal" id="modal-relatorio">
+  <div class="sheet">
+    <h2 class="titulo">Gerar planilha</h2>
+    <p class="hint">Soma o consumo por item no período e gera um arquivo Excel (.xlsx) com código, descrição e quantidade — pronto para o chefe geral.</p>
+    <div style="display:flex;gap:10px">
+      <div style="flex:1"><label class="imp-lbl">De</label><input type="date" id="rel-de"></div>
+      <div style="flex:1"><label class="imp-lbl">Até</label><input type="date" id="rel-ate"></div>
+    </div>
+    <div class="row-btns">
+      <button class="btn btn-grey" onclick="closeModal('relatorio')">Cancelar</button>
+      <button class="btn btn-green" onclick="gerarPlanilha()">Baixar Excel</button>
     </div>
   </div>
 </div>
@@ -292,11 +354,12 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 /* =========================================================================
    Almoxarifado UDESC — app offline-first
    ========================================================================= */
-const APP_VERSION = 'v18';
+const APP_VERSION = 'v19';
 
 /* Ícones de leitura (SVG inline, herdam a cor via currentColor) */
 const ICON_QR = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6.5v3h-3v-3h3M11 5H5v6h6V5zm-1.5 9.5v3h-3v-3h3M11 13H5v6h6v-6zm6.5-6.5v3h-3v-3h3M19 5h-6v6h6V5zm-6 8h1.5v1.5H13V13zm1.5 1.5H16V16h-1.5v-1.5zM16 13h1.5v1.5H16V13zm-3 3h1.5v1.5H13V16zm1.5 1.5H16V19h-1.5v-1.5zM16 16h1.5v1.5H16V16zm1.5-1.5H19V16h-1.5v-1.5zm0 3H19V19h-1.5v-1.5zM22 7h-2V4h-3V2h5v5zm0 15v-5h-2v3h-3v2h5zM2 22h5v-2H4v-3H2v5zM2 2v5h2V4h3V2H2z"/></svg>';
@@ -308,6 +371,9 @@ let filter = 'todos';
 let locFilter = null;           // localização selecionada via QR/filtro
 let pendingCount = 0;
 let pick = [];                  // lista de separação
+let consumo = [];               // lançamentos de saída (servidor + pendentes)
+let importTarget = 'pick';      // destino da importação: 'pick' ou 'consumo'
+let saidaSel = null;            // item selecionado no formulário de saída avulsa
 
 /* ---------- IndexedDB (snapshot, fila de sincronização, picking) ---------- */
 const DB_NAME = 'almoxUdesc', DB_VER = 1;
@@ -344,6 +410,7 @@ function openModal(id){
   modalStack.push(id);
   history.pushState({ modal:id }, '');
   if(id==='pick') renderPick();
+  if(id==='consumo') refreshConsumo();
 }
 // Fecha pelo histórico quando este é o modal do topo (mantém o Voltar coerente);
 // senão, fecha direto.
@@ -709,6 +776,10 @@ async function syncNow(){
         payload=Object.assign({action:'pushItem'}, op); delete payload.type; delete payload.id;
       }else if(op.type==='deleteImage'){
         payload={ action:'deleteImage', codigo:op.codigo, url:op.url };
+      }else if(op.type==='consumo'){
+        payload={ action:'addConsumo', entries:op.entries };
+      }else if(op.type==='deleteConsumo'){
+        payload={ action:'deleteConsumo', id:op.cid };
       }else{
         payload={ action:'uploadImages', codigo:op.codigo, images:op.images };
       }
@@ -733,6 +804,7 @@ async function syncNow(){
   }
   await refreshPending(); btn.disabled=false; btn.textContent='Sincronizar';
   render();
+  if(document.getElementById('modal-consumo').classList.contains('open')) refreshConsumo();
   if(failed){
     const m = netDown
       ? 'Conexão instável. O que faltou será sincronizado quando a rede estabilizar.'
@@ -827,21 +899,32 @@ async function addToPick(codigo){
 }
 
 /* ---------- Importar requisição (duas colunas: códigos e quantidades) ---------- */
-function openImport(){ document.getElementById('import-cods').value=''; document.getElementById('import-qts').value=''; openModal('import'); }
+function openImport(target){
+  importTarget = target || 'pick';
+  document.getElementById('import-cods').value='';
+  document.getElementById('import-qts').value='';
+  const wrap=document.getElementById('import-solic-wrap');
+  const title=document.getElementById('import-title');
+  if(importTarget==='consumo'){
+    wrap.style.display=''; document.getElementById('import-solic').value='Chefe da limpeza';
+    title.textContent='Lançar requisição da limpeza';
+  }else{
+    wrap.style.display='none'; title.textContent='Importar requisição';
+  }
+  openModal('import');
+}
 function normCod(c){ return String(c==null?'':c).trim().replace(/^0+/,''); }   // ignora zeros à esquerda
 function findItemByCodigo(cod){
   return items.find(it=>it.codigo===cod) || items.find(it=>normCod(it.codigo)===normCod(cod));
 }
 function linhas(id){ return document.getElementById(id).value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean); }
-function doImport(){
+// Lê e valida as duas colunas. Retorna { error } OU { ok:[{it,qtd}], erros:[] }
+function parseImport(){
   const cods=linhas('import-cods'), qts=linhas('import-qts');
-  if(!cods.length){ alertDialog('Cole pelo menos um código de item.', {title:'Importar requisição'}); return; }
-  // Trava de segurança: as duas colunas precisam ter o mesmo número de linhas (casamento por posição)
-  if(cods.length!==qts.length){
-    alertDialog('As colunas têm tamanhos diferentes:\n'+cods.length+' código(s) e '+qts.length+' quantidade(s).\n\nElas precisam ter o mesmo número de linhas, na mesma ordem. Confira e tente de novo.', {title:'Colunas não batem'});
-    return;
-  }
-  let add=0, upd=0; const erros=[];
+  if(!cods.length) return { error:'Cole pelo menos um código de item.' };
+  if(cods.length!==qts.length)
+    return { error:'As colunas têm tamanhos diferentes:\n'+cods.length+' código(s) e '+qts.length+' quantidade(s).\n\nElas precisam ter o mesmo número de linhas, na mesma ordem. Confira e tente de novo.' };
+  const ok=[], erros=[];
   for(let i=0;i<cods.length;i++){
     const cod=cods[i].split(/[\s,;]+/)[0];
     const m=String(qts[i]).replace(',','.').match(/-?\d+(\.\d+)?/);
@@ -849,16 +932,38 @@ function doImport(){
     if(!isFinite(qtd) || qtd<=0){ erros.push('Linha '+(i+1)+': quantidade inválida ("'+qts[i]+'")'); continue; }
     const it=findItemByCodigo(cod);
     if(!it){ erros.push('Linha '+(i+1)+': código não encontrado ("'+cod+'")'); continue; }
-    const p=pick.find(x=>x.codigo===it.codigo);
-    if(p){ p.qtd=qtd; upd++; }
-    else { pick.push({ codigo:it.codigo, descricao:it.descricao, localizacao:it.localizacao, qtd, checked:false }); add++; }
+    ok.push({ it, qtd });
   }
+  return { ok, erros };
+}
+function doImport(){
+  if(importTarget==='consumo') return doImportConsumo();
+  const p=parseImport();
+  if(p.error){ alertDialog(p.error, {title:'Importar requisição'}); return; }
+  let add=0, upd=0;
+  p.ok.forEach(({it,qtd})=>{
+    const ex=pick.find(x=>x.codigo===it.codigo);
+    if(ex){ ex.qtd=qtd; upd++; }
+    else { pick.push({ codigo:it.codigo, descricao:it.descricao, localizacao:it.localizacao, qtd, checked:false }); add++; }
+  });
   savePick();
   let msg=add+' item(ns) adicionado(s)'+(upd?' e '+upd+' atualizado(s)':'')+' na lista de separação.';
-  if(erros.length) msg+='\n\nNão importados:\n'+erros.join('\n');
+  if(p.erros.length) msg+='\n\nNão importados:\n'+p.erros.join('\n');
   _pendingAlert={ msg, opts:{ title:'Importação concluída' } };
-  closeModal('import');   // ao fechar, mostra o resumo
+  closeModal('import');
   renderPick();
+}
+async function doImportConsumo(){
+  const p=parseImport();
+  if(p.error){ alertDialog(p.error, {title:'Lançar requisição'}); return; }
+  const solic=document.getElementById('import-solic').value.trim()||'Chefe da limpeza';
+  const agora=new Date();
+  const entries=p.ok.map(({it,qtd})=> novaSaida(it, qtd, solic, '', agora));
+  let msg=entries.length+' item(ns) lançado(s) no consumo (solicitante: '+solic+').';
+  if(p.erros.length) msg+='\n\nNão lançados:\n'+p.erros.join('\n');
+  _pendingAlert={ msg, opts:{ title:'Consumo lançado' } };
+  closeModal('import');
+  if(entries.length) await enqueueConsumo(entries);
 }
 function renderPick(){
   // rota otimizada: ordena pela localização (ordem natural sequencial)
@@ -882,6 +987,162 @@ async function delPick(i){
 }
 async function clearPick(){ if(await confirmDialog('Isso vai remover todos os itens da lista de separação.', {title:'Limpar lista', okText:'Limpar', danger:true})){ pick=[]; savePick(); renderPick(); } }
 
+/* ---------- Consumo (saídas de materiais) ---------- */
+// Carrega do servidor (com cache) e mescla com lançamentos pendentes da fila
+async function loadConsumo(){
+  let base=[];
+  if(navigator.onLine && scriptUrl){
+    try{
+      const res=await fetch(scriptUrl+'?action=consumo', { method:'GET' });
+      const json=await res.json();
+      if(json.ok){ base=json.rows||[]; await idbPut('kv',{ k:'consumoSnap', rows:base }); }
+    }catch(e){}
+  }
+  if(!base.length){ const sn=await idbGet('kv','consumoSnap'); if(sn&&sn.rows) base=sn.rows; }
+  const queue=await idbAll('queue');
+  const delIds=new Set();
+  queue.forEach(op=>{ if(op.type==='deleteConsumo') delIds.add(op.cid); });
+  base=base.filter(r=>!delIds.has(r.id));
+  queue.forEach(op=>{ if(op.type==='consumo'){ op.entries.forEach(e=> base.push(Object.assign({ pending:true }, e))); } });
+  consumo=base;
+}
+async function refreshConsumo(){ await loadConsumo(); renderConsumo(); }
+function renderConsumo(){
+  const el=document.getElementById('consumo-list'); if(!el) return; el.innerHTML='';
+  const list=[...consumo].sort((a,b)=> (Date.parse(b.dataHora)||0)-(Date.parse(a.dataHora)||0));
+  document.getElementById('consumo-count').textContent=consumo.length;
+  if(!list.length){ el.innerHTML='<p class="hint">Nenhuma saída registrada ainda.</p>'; return; }
+  list.slice(0,80).forEach(e=>{
+    const d=document.createElement('div'); d.className='pick-item';
+    d.innerHTML=`<div class="pk-body">
+        <div class="pk-desc">${esc(e.descricao)}</div>
+        <div class="pk-qty">Cód: ${esc(e.codigo)} · Qtd: ${esc(e.quantidade)} · ${esc(e.solicitante||'—')}${e.pending?' · <span class="badge-pend">pendente</span>':''}</div>
+        <div class="pk-qty">${esc(fmtDateTime(e.dataHora))}${e.observacao?(' · '+esc(e.observacao)):''}</div>
+      </div>
+      <button class="pk-del" onclick="delConsumo('${esc(e.id)}')" title="Remover lançamento">${ICON_TRASH}</button>`;
+    el.appendChild(d);
+  });
+}
+// Cria um objeto de saída com id único e data em ISO
+function novaSaida(it, qtd, solic, obs, dataLike){
+  let iso;
+  if(dataLike instanceof Date) iso=dataLike.toISOString();
+  else { const d=new Date(dataLike); iso=isNaN(d)?new Date().toISOString():d.toISOString(); }
+  return { id:'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+           codigo:it.codigo, descricao:it.descricao, quantidade:Number(qtd)||0,
+           solicitante:solic||'', observacao:obs||'', dataHora:iso };
+}
+async function enqueueConsumo(entries){
+  await enqueue({ type:'consumo', entries });
+  await refreshConsumo();
+  if(navigator.onLine) syncNow();
+}
+async function removePendingConsumo(cid){
+  const q=await idbAll('queue');
+  for(const op of q){
+    if(op.type==='consumo'){
+      const idx=op.entries.findIndex(e=>e.id===cid);
+      if(idx>=0){
+        op.entries.splice(idx,1);
+        if(op.entries.length) await idbPut('queue', op); else await idbDel('queue', op.id);
+        await refreshPending();
+        return;
+      }
+    }
+  }
+}
+async function delConsumo(id){
+  const e=consumo.find(x=>x.id===id); if(!e) return;
+  if(!await confirmDialog('Remover este lançamento?\n'+e.descricao+' (Qtd: '+e.quantidade+')', {title:'Remover lançamento', okText:'Remover', danger:true})) return;
+  if(e.pending) await removePendingConsumo(id);
+  else await enqueue({ type:'deleteConsumo', cid:id });
+  await refreshConsumo();
+  if(navigator.onLine) syncNow();
+}
+
+/* ---------- Saída avulsa (formulário) ---------- */
+function openSaida(){
+  saidaSel=null;
+  document.getElementById('saida-busca').value='';
+  document.getElementById('saida-res').innerHTML='';
+  document.getElementById('saida-sel').textContent='Nenhum item selecionado.';
+  document.getElementById('saida-qtd').value='';
+  document.getElementById('saida-solic').value='';
+  document.getElementById('saida-obs').value='';
+  document.getElementById('saida-data').value=nowLocal();
+  openModal('saida');
+}
+function renderSaidaBusca(){
+  const q=norm(document.getElementById('saida-busca').value);
+  const box=document.getElementById('saida-res'); box.innerHTML='';
+  if(!q) return;
+  items.filter(it=> norm(it.descricao).includes(q)||norm(it.codigo).includes(q)||norm(it.codigoBarras).includes(q))
+    .slice(0,8).forEach(it=>{
+      const d=document.createElement('div'); d.className='pick-item';
+      d.innerHTML=`<div class="pk-body"><div class="pk-desc">${esc(it.descricao)}</div><div class="pk-qty">Cód: ${esc(it.codigo)}</div></div><button class="btn btn-green" style="padding:8px 12px" onclick="selSaida('${esc(it.codigo)}')">Escolher</button>`;
+      box.appendChild(d);
+    });
+}
+function selSaida(cod){
+  const it=items.find(i=>i.codigo===cod); if(!it) return;
+  saidaSel=it;
+  document.getElementById('saida-sel').innerHTML='<b>'+esc(it.descricao)+'</b> (Cód: '+esc(it.codigo)+')';
+  document.getElementById('saida-res').innerHTML='';
+  document.getElementById('saida-busca').value='';
+}
+async function salvarSaida(){
+  if(!saidaSel){ alertDialog('Escolha o item da saída na busca.', {title:'Saída avulsa'}); return; }
+  const qtd=Number(document.getElementById('saida-qtd').value);
+  if(!isFinite(qtd) || qtd<=0){ alertDialog('Informe uma quantidade válida.', {title:'Saída avulsa'}); return; }
+  const solic=document.getElementById('saida-solic').value.trim();
+  const obs=document.getElementById('saida-obs').value.trim();
+  const dataVal=document.getElementById('saida-data').value || nowLocal();
+  const entry=novaSaida(saidaSel, qtd, solic, obs, dataVal);
+  _pendingAlert={ msg:'Saída registrada: '+entry.descricao+' (Qtd: '+qtd+').', opts:{ title:'Saída avulsa' } };
+  closeModal('saida');
+  await enqueueConsumo([entry]);
+}
+
+/* ---------- Gerar planilha (Excel) ---------- */
+async function openRelatorio(){
+  await loadConsumo();
+  const last=await idbGet('kv','lastReport');
+  let de;
+  if(last && last.ate){ const d=new Date(last.ate+'T00:00:00'); d.setDate(d.getDate()+1); de=ymd(d); }
+  else { const d=new Date(); d.setDate(d.getDate()-7); de=ymd(d); }
+  document.getElementById('rel-de').value=de;
+  document.getElementById('rel-ate').value=ymd(new Date());
+  openModal('relatorio');
+}
+async function gerarPlanilha(){
+  const de=document.getElementById('rel-de').value, ate=document.getElementById('rel-ate').value;
+  if(!de||!ate){ alertDialog('Escolha as duas datas (De e Até).', {title:'Gerar planilha'}); return; }
+  const ini=new Date(de+'T00:00:00').getTime(), fim=new Date(ate+'T23:59:59').getTime();
+  if(ini>fim){ alertDialog('A data inicial está depois da final.', {title:'Gerar planilha'}); return; }
+  if(typeof XLSX==='undefined'){ alertDialog('A biblioteca de Excel ainda não carregou. Conecte à internet uma vez para baixá-la e tente novamente.', {title:'Excel indisponível'}); return; }
+  // soma por código no período
+  const map={};
+  consumo.forEach(e=>{
+    const ts=Date.parse(e.dataHora); if(isNaN(ts)||ts<ini||ts>fim) return;
+    if(!map[e.codigo]) map[e.codigo]={ codigo:e.codigo, descricao:e.descricao, qtd:0 };
+    map[e.codigo].qtd += Number(e.quantidade)||0;
+  });
+  const rows=Object.values(map).sort((a,b)=> natCmp(a.codigo,b.codigo));
+  if(!rows.length){ alertDialog('Nenhuma saída no período selecionado.', {title:'Gerar planilha'}); return; }
+  const aoa=[['Código','Descrição','Quantidade']];
+  rows.forEach(l=> aoa.push([String(l.codigo), l.descricao, l.qtd]));
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  rows.forEach((l,i)=>{ const c=ws['A'+(i+2)]; if(c){ c.t='s'; c.v=String(l.codigo); } }); // código como texto
+  ws['!cols']=[{wch:14},{wch:60},{wch:12}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Consumo');
+  const nome='consumo_'+de+'_a_'+ate+'.xlsx';
+  XLSX.writeFile(wb, nome);
+  await idbPut('kv', { k:'lastReport', ate });
+  _pendingAlert={ msg:rows.length+' item(ns) no período. Arquivo "'+nome+'" gerado — veja seus downloads para enviar ao chefe geral.', opts:{ title:'Planilha gerada' } };
+  closeModal('relatorio');
+}
+
 /* ---------- Utils ---------- */
 // Extrai o ID de um link do Drive (formatos uc?id=, /d/ID, /file/d/ID)
 function driveId(u){ if(!u) return ''; const m=String(u).match(/[?&]id=([\w-]+)/)||String(u).match(/\/d\/([\w-]+)/); return m?m[1]:''; }
@@ -893,6 +1154,11 @@ function imgFallback(el){ const fb=el.getAttribute('data-fb'); if(fb && el.src!=
 function natCmp(a,b){ return String(a||'').localeCompare(String(b||''),'pt',{numeric:true,sensitivity:'base'}); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function fmtDate(iso){ if(!iso) return ''; const p=iso.split('-'); return p.length===3? p[2]+'/'+p[1]+'/'+p[0] : iso; }
+// Data/hora ISO -> "dd/mm/aaaa hh:mm"
+function fmtDateTime(iso){ if(!iso) return ''; const d=new Date(iso); if(isNaN(d)) return String(iso); const p=n=>String(n).padStart(2,'0'); return p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear()+' '+p(d.getHours())+':'+p(d.getMinutes()); }
+// Date -> "aaaa-mm-dd" (para input date) ; agora -> "aaaa-mm-ddThh:mm" (para datetime-local)
+function ymd(d){ const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
+function nowLocal(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes()); }
 // "1.0 - PECA" -> "Unid.: PECA" (mostra só o nome da unidade de distribuição)
 function fmtUnidade(u){ if(!u) return ''; const p=String(u).split('-'); const nome=(p.length>1?p[p.length-1]:p[0]).trim(); return nome?'Unid.: '+nome:''; }
 

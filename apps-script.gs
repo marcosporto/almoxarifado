@@ -182,6 +182,7 @@ function parseYmd_(s) {
 
 function doGet(e) {
   try {
+    if (e && e.parameter && e.parameter.action === 'consumo') return jsonOut_(getConsumo_());
     var sheet = getSheet_();
     var values = sheet.getDataRange().getValues();
     if (values.length < 1) return jsonOut_({ ok: true, rows: [] });
@@ -273,9 +274,11 @@ function doPost(e) {
     var body = JSON.parse(e.postData.contents);
     var action = body.action || 'pushItem';
 
-    if (action === 'pushItem')     return jsonOut_(pushItem_(body));
-    if (action === 'uploadImages') return jsonOut_(uploadImages_(body));
-    if (action === 'deleteImage')  return jsonOut_(deleteImage_(body));
+    if (action === 'pushItem')      return jsonOut_(pushItem_(body));
+    if (action === 'uploadImages')  return jsonOut_(uploadImages_(body));
+    if (action === 'deleteImage')   return jsonOut_(deleteImage_(body));
+    if (action === 'addConsumo')    return jsonOut_(addConsumo_(body));
+    if (action === 'deleteConsumo') return jsonOut_(deleteConsumo_(body));
 
     return jsonOut_({ ok: false, error: 'Ação desconhecida: ' + action });
   } catch (err) {
@@ -434,4 +437,86 @@ function uploadImages_(body) {
   }
 
   return { ok: true, codigo: String(body.codigo), urls: urls };
+}
+
+/* ------------------------------------------------------------------ */
+/* Consumo — registro de saídas de materiais (aba "Consumo")          */
+/* ------------------------------------------------------------------ */
+
+var CONSUMO_SHEET = 'Consumo';
+var CONSUMO_HEADERS = ['ID', 'Data/Hora', 'Código', 'Descrição', 'Quantidade', 'Solicitante', 'Observação'];
+
+// Cria a aba "Consumo" (com cabeçalhos e formatos) se ainda não existir
+function getConsumoSheet_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(CONSUMO_SHEET);
+  if (!sheet) {
+    sheet = ss.insertSheet(CONSUMO_SHEET);
+    sheet.getRange(1, 1, 1, CONSUMO_HEADERS.length).setValues([CONSUMO_HEADERS]);
+    sheet.setFrozenRows(1);
+    var maxR = sheet.getMaxRows() - 1;
+    sheet.getRange(2, 2, maxR, 1).setNumberFormat('dd/MM/yyyy HH:mm'); // Data/Hora
+    sheet.getRange(2, 3, maxR, 1).setNumberFormat('@');                // Código como texto
+  }
+  return sheet;
+}
+
+// Grava um ou mais lançamentos de saída.  body: { entries: [ {id, dataHora, codigo, descricao, quantidade, solicitante, observacao} ] }
+function addConsumo_(body) {
+  var entries = body.entries || [];
+  if (!entries.length) return { ok: false, error: 'Nenhum lançamento recebido.' };
+  var sheet = getConsumoSheet_();
+  var rows = entries.map(function (e) {
+    var d = e.dataHora ? new Date(e.dataHora) : new Date();
+    if (isNaN(d)) d = new Date();
+    return [String(e.id || ''), d, String(e.codigo || ''), String(e.descricao || ''),
+            Number(e.quantidade) || 0, String(e.solicitante || ''), String(e.observacao || '')];
+  });
+  var start = sheet.getLastRow() + 1;
+  // formata ANTES de gravar para preservar zeros à esquerda e a data
+  sheet.getRange(start, 2, rows.length, 1).setNumberFormat('dd/MM/yyyy HH:mm');
+  sheet.getRange(start, 3, rows.length, 1).setNumberFormat('@');
+  sheet.getRange(start, 1, rows.length, CONSUMO_HEADERS.length).setValues(rows);
+  return { ok: true, count: rows.length };
+}
+
+// Devolve todos os lançamentos de consumo (data em ISO para o app)
+function getConsumo_() {
+  var sheet = getConsumoSheet_();
+  var values = sheet.getDataRange().getValues();
+  var rows = [];
+  for (var r = 1; r < values.length; r++) {
+    var row = values[r];
+    if (!String(row[0] || '') && !String(row[2] || '')) continue; // linha vazia
+    var dh = row[1], iso = '';
+    if (Object.prototype.toString.call(dh) === '[object Date]' && !isNaN(dh)) {
+      iso = Utilities.formatDate(dh, Session.getScriptTimeZone(), "yyyy-MM-dd'T'HH:mm:ss");
+    } else {
+      iso = String(dh || '');
+    }
+    rows.push({
+      id: String(row[0] || ''),
+      dataHora: iso,
+      codigo: String(row[2] || ''),
+      descricao: String(row[3] || ''),
+      quantidade: Number(row[4]) || 0,
+      solicitante: String(row[5] || ''),
+      observacao: String(row[6] || '')
+    });
+  }
+  return { ok: true, rows: rows, count: rows.length };
+}
+
+// Remove um lançamento pelo ID.  body: { id }
+function deleteConsumo_(body) {
+  var id = String(body.id || '');
+  if (!id) return { ok: false, error: 'ID não informado.' };
+  var sheet = getConsumoSheet_();
+  var last = sheet.getLastRow();
+  if (last < 2) return { ok: true };
+  var ids = sheet.getRange(2, 1, last - 1, 1).getValues();
+  for (var i = 0; i < ids.length; i++) {
+    if (String(ids[i][0]) === id) { sheet.deleteRow(i + 2); return { ok: true }; }
+  }
+  return { ok: true }; // já não existe — idempotente
 }
