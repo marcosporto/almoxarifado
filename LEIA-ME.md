@@ -13,7 +13,7 @@ Arquivos: `index.html`, `sw.js`, `manifest.json`, `icon.svg`, `apps-script.gs`.
    `Código Interno · Código de Barras · Descrição · Unidade de Distribuição · Localização · Estoque Sistema · Conferido · Diferença · Estoque Mínimo · Data de Validade · Dias para Aviso de Validade · Observações · Status do Inventário · Imagens`
    *(A ordem pode mudar — o código mapeia por nome de cabeçalho.)*
    *A coluna "Diferença" (Conferido − Estoque Sistema) é preenchida automaticamente quando o item é conferido.*
-   *Uma aba "Consumo" é criada sozinha para registrar as saídas de materiais (ID · Data/Hora · Código · Descrição · Quantidade · Solicitante · Observação).*
+   *A aba principal do estoque se chama "Estoque". Uma aba "Consumo" é criada sozinha para registrar as saídas de materiais (ID · Data da Saída · Código Interno · Descrição · Quantidade · Solicitante · Observações).*
    *Já tem uma planilha antiga? No editor do Apps Script, rode a função `padronizarPlanilha` uma vez para renomear os cabeçalhos, remover a coluna legada "Estoque Real" e formatar a validade como dd/MM/aaaa.*
 4. **Implantar → Nova implantação → "App da Web"**
    - Executar como: **Eu**

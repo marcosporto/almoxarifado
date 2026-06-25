@@ -14,7 +14,7 @@
  * Se a planilha estiver vazia, os cabeçalhos são criados automaticamente.
  */
 
-var SHEET_NAME = 'Página1';
+var SHEET_NAME = 'Estoque';
 var IMAGE_FOLDER_NAME = 'Almoxarifado UDESC - Imagens';
 
 // Definição canônica das colunas: chave interna (usada pelo app) -> rótulo na planilha.
@@ -52,7 +52,16 @@ function canonicalLabelByKey_() {
 
 function getSheet_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(SHEET_NAME) || ss.getSheets()[0];
+  var sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) {
+    // Compatibilidade: usa a primeira aba que não seja "Consumo" e a renomeia para "Estoque"
+    var all = ss.getSheets();
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].getName() !== CONSUMO_SHEET) { sheet = all[i]; break; }
+    }
+    if (!sheet) sheet = ss.insertSheet(SHEET_NAME);
+    if (sheet.getName() !== SHEET_NAME) sheet.setName(SHEET_NAME);
+  }
   // Garante cabeçalhos se a planilha estiver vazia
   if (sheet.getLastRow() === 0) {
     sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
@@ -444,20 +453,23 @@ function uploadImages_(body) {
 /* ------------------------------------------------------------------ */
 
 var CONSUMO_SHEET = 'Consumo';
-var CONSUMO_HEADERS = ['ID', 'Data/Hora', 'Código', 'Descrição', 'Quantidade', 'Solicitante', 'Observação'];
+// Cabeçalhos no mesmo padrão da aba "Estoque" (Título descritivo em Português).
+// As colunas são posicionais, então renomear é seguro.
+var CONSUMO_HEADERS = ['ID', 'Data da Saída', 'Código Interno', 'Descrição', 'Quantidade', 'Solicitante', 'Observações'];
 
-// Cria a aba "Consumo" (com cabeçalhos e formatos) se ainda não existir
+// Cria a aba "Consumo" (com formatos) se não existir e garante os cabeçalhos padronizados
 function getConsumoSheet_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(CONSUMO_SHEET);
   if (!sheet) {
     sheet = ss.insertSheet(CONSUMO_SHEET);
-    sheet.getRange(1, 1, 1, CONSUMO_HEADERS.length).setValues([CONSUMO_HEADERS]);
     sheet.setFrozenRows(1);
     var maxR = sheet.getMaxRows() - 1;
-    sheet.getRange(2, 2, maxR, 1).setNumberFormat('dd/MM/yyyy HH:mm'); // Data/Hora
+    sheet.getRange(2, 2, maxR, 1).setNumberFormat('dd/MM/yyyy HH:mm'); // Data da Saída
     sheet.getRange(2, 3, maxR, 1).setNumberFormat('@');                // Código como texto
   }
+  // (re)aplica os cabeçalhos padronizados — atualiza também abas já existentes
+  sheet.getRange(1, 1, 1, CONSUMO_HEADERS.length).setValues([CONSUMO_HEADERS]);
   return sheet;
 }
 
