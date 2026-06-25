@@ -1,0 +1,14 @@
+{
+  "name": "Almoxarifado UDESC",
+  "short_name": "Almoxarifado",
+  "description": "Gestão de almoxarifado offline-first — UDESC",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#054B28",
+  "theme_color": "#149954",
+  "icons": [
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
