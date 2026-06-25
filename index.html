@@ -142,6 +142,14 @@
   .row-btns .btn{ flex:1; padding:13px; }
   .btn-grey{ background:var(--cinza-50); color:var(--cinza-500); border:1.5px solid var(--cinza-100); }
   .btn-green{ background:var(--verde); color:#fff; }
+  .btn-danger{ background:var(--vermelho); color:#fff; }
+
+  /* Caixa de confirmação (substitui o confirm() nativo) */
+  #modal-confirm{ align-items:center; padding:24px; }
+  .confirm-sheet{ border-radius:16px; max-width:420px; max-height:none; padding:22px 20px 20px; }
+  .confirm-sheet h2{ margin-bottom:8px; }
+  .confirm-sheet .hint{ margin-bottom:18px; }
+  #confirm-msg{ white-space:pre-line; }   /* respeita quebras de linha das mensagens */
   #reader{ width:100%; border-radius:12px; overflow:hidden; }
 
   /* Picking list */
@@ -250,12 +258,25 @@
   <img id="lightbox-img" alt="">
 </div>
 
+<!-- Caixa de confirmação personalizada (substitui o confirm() do navegador) -->
+<div class="modal" id="modal-confirm">
+  <div class="sheet confirm-sheet">
+    <h2 class="titulo" id="confirm-title">Confirmar</h2>
+    <p class="hint" id="confirm-msg"></p>
+    <input type="text" id="confirm-input" style="display:none" onkeydown="if(event.key==='Enter'){_confirmValue=true; closeModal('confirm');}">
+    <div class="row-btns">
+      <button class="btn btn-grey" id="confirm-cancel" onclick="closeModal('confirm')">Cancelar</button>
+      <button class="btn btn-green" id="confirm-ok" onclick="_confirmValue=true; closeModal('confirm')">Confirmar</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
 /* =========================================================================
    Almoxarifado UDESC — app offline-first
    ========================================================================= */
-const APP_VERSION = 'v13';
+const APP_VERSION = 'v16';
 
 /* Ícones de leitura (SVG inline, herdam a cor via currentColor) */
 const ICON_QR = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6.5v3h-3v-3h3M11 5H5v6h6V5zm-1.5 9.5v3h-3v-3h3M11 13H5v6h6v-6zm6.5-6.5v3h-3v-3h3M19 5h-6v6h6V5zm-6 8h1.5v1.5H13V13zm1.5 1.5H16V16h-1.5v-1.5zM16 13h1.5v1.5H16V13zm-3 3h1.5v1.5H13V16zm1.5 1.5H16V19h-1.5v-1.5zM16 16h1.5v1.5H16V16zm1.5-1.5H19V16h-1.5v-1.5zm0 3H19V19h-1.5v-1.5zM22 7h-2V4h-3V2h5v5zm0 15v-5h-2v3h-3v2h5zM2 22h5v-2H4v-3H2v5zM2 2v5h2V4h3V2H2z"/></svg>';
@@ -314,7 +335,64 @@ function forceClose(id){
   if(el) el.classList.remove('open');
   const i=modalStack.lastIndexOf(id);
   if(i>=0) modalStack.splice(i,1);
-  if(id==='scan') stopScan();
+  if(id==='scan'){ stopScan(); if(_pendingAlert){ const a=_pendingAlert; _pendingAlert=null; alertDialog(a.msg, a.opts); } }
+  if(id==='confirm' && _confirmResolve){
+    const r=_confirmResolve; _confirmResolve=null;
+    const out = _confirmMode==='prompt'
+      ? (_confirmValue ? document.getElementById('confirm-input').value : null)
+      : _confirmValue;
+    document.getElementById('confirm-input').style.display='none';
+    r(out);
+  }
+}
+
+/* Confirmação personalizada (Promise<boolean>) — substitui o confirm() nativo.
+   opts: { title, okText, cancelText, danger } */
+let _confirmResolve=null, _confirmValue=false, _pendingAlert=null, _confirmMode='confirm';
+function confirmDialog(message, opts){
+  opts=opts||{};
+  document.getElementById('confirm-title').textContent = opts.title||'Confirmar';
+  document.getElementById('confirm-msg').textContent   = message;
+  document.getElementById('confirm-input').style.display='none';
+  const ok=document.getElementById('confirm-ok');
+  ok.textContent = opts.okText||'Confirmar';
+  ok.className   = 'btn '+(opts.danger?'btn-danger':'btn-green');
+  const cancel=document.getElementById('confirm-cancel');
+  cancel.style.display=''; cancel.textContent = opts.cancelText||'Cancelar';
+  _confirmMode='confirm'; _confirmValue=false;
+  openModal('confirm');
+  return new Promise(res=>{ _confirmResolve=res; });
+}
+/* Aviso personalizado (só botão OK) — substitui o alert() nativo. */
+function alertDialog(message, opts){
+  opts=opts||{};
+  document.getElementById('confirm-title').textContent = opts.title||'Aviso';
+  document.getElementById('confirm-msg').textContent   = message;
+  document.getElementById('confirm-input').style.display='none';
+  const ok=document.getElementById('confirm-ok');
+  ok.textContent = opts.okText||'OK'; ok.className='btn btn-green';
+  document.getElementById('confirm-cancel').style.display='none';
+  _confirmMode='alert'; _confirmValue=false;
+  openModal('confirm');
+  return new Promise(res=>{ _confirmResolve=res; });
+}
+/* Entrada personalizada (Promise<string|null>) — substitui o prompt() nativo. */
+function promptDialog(message, defaultValue, opts){
+  opts=opts||{};
+  document.getElementById('confirm-title').textContent = opts.title||'Informe um valor';
+  document.getElementById('confirm-msg').textContent   = message;
+  const inp=document.getElementById('confirm-input');
+  inp.style.display=''; inp.type=opts.type||'text';
+  if(opts.inputmode) inp.setAttribute('inputmode',opts.inputmode); else inp.removeAttribute('inputmode');
+  inp.value = defaultValue==null?'':String(defaultValue);
+  const ok=document.getElementById('confirm-ok');
+  ok.textContent=opts.okText||'OK'; ok.className='btn btn-green';
+  const cancel=document.getElementById('confirm-cancel');
+  cancel.style.display=''; cancel.textContent=opts.cancelText||'Cancelar';
+  _confirmMode='prompt'; _confirmValue=false;
+  openModal('confirm');
+  setTimeout(()=>{ inp.focus(); inp.select(); }, 50);
+  return new Promise(res=>{ _confirmResolve=res; });
 }
 // Botão Voltar / gesto: fecha o modal do topo da pilha.
 window.addEventListener('popstate', ()=>{
@@ -323,7 +401,7 @@ window.addEventListener('popstate', ()=>{
 });
 function saveConfig(){
   const u = document.getElementById('cfg-url').value.trim();
-  if(!u) return alert('Cole a URL do Apps Script.');
+  if(!u){ alertDialog('Cole a URL do Web App do Apps Script para carregar o inventário.', {title:'URL necessária'}); return; }
   scriptUrl = u; localStorage.setItem(URL_KEY, u);
   closeModal('config'); loadData();
 }
@@ -576,7 +654,7 @@ function compress(file, maxDim=1000, quality=0.6){
 
 /* ---------- Excluir foto (servidor e pendente) ---------- */
 async function delImage(codigo, url){
-  if(!confirm('Remover esta foto? Ela vai para a lixeira do Drive.')) return;
+  if(!await confirmDialog('Esta foto será movida para a lixeira do Google Drive.', {title:'Remover foto', okText:'Remover', danger:true})) return;
   const it=items.find(i=>i.codigo===codigo); if(!it) return;
   it.imagens=(it.imagens||[]).filter(u=>u!==url);
   await saveSnapshot();
@@ -636,7 +714,7 @@ async function syncNow(){
     const m = netDown
       ? 'Conexão instável. O que faltou será sincronizado quando a rede estabilizar.'
       : 'Não sincronizou '+failed+' item(ns).\nMotivo: '+lastErr;
-    alert(m);
+    alertDialog(m, {title:'Sincronização'});
   }
 }
 
@@ -676,7 +754,7 @@ async function startScan(onResult, texts){
     await qr.start({ facingMode:'environment' }, { fps:10, qrbox:{width:230,height:230} },
       (text)=>{ const cb=scanCb; closeModal('scan'); cb(text); },
       ()=>{});
-  }catch(e){ alert('Não foi possível abrir a câmera: '+e); closeModal('scan'); }
+  }catch(e){ _pendingAlert={ msg:'Não foi possível abrir a câmera. Verifique a permissão da câmera no navegador.\n\n'+e, opts:{title:'Câmera'} }; closeModal('scan'); }
 }
 // Lê um QR/código e joga o valor num campo específico do card (kind define o texto)
 function scanInto(inputId, kind){
@@ -716,11 +794,11 @@ function renderPickSearch(){
       box.appendChild(d);
     });
 }
-function addToPick(codigo){
+async function addToPick(codigo){
   const it=items.find(i=>i.codigo===codigo); if(!it) return;
   let p=pick.find(x=>x.codigo===codigo);
-  const qtd=prompt('Quantidade solicitada de:\n'+it.descricao, p?p.qtd:'1');
-  if(qtd===null) return;
+  const qtd=await promptDialog(it.descricao, p?p.qtd:'1', {title:'Quantidade solicitada', type:'number', inputmode:'numeric', okText:'Adicionar'});
+  if(qtd===null || String(qtd).trim()==='') return;
   if(p) p.qtd=Number(qtd); else pick.push({ codigo, descricao:it.descricao, localizacao:it.localizacao, qtd:Number(qtd), checked:false });
   savePick(); document.getElementById('pick-search').value=''; document.getElementById('pick-search-results').innerHTML=''; renderPick();
 }
@@ -740,7 +818,7 @@ function renderPick(){
 }
 function togglePick(i){ pick[i].checked=!pick[i].checked; savePick(); renderPick(); }
 function delPick(i){ pick.splice(i,1); savePick(); renderPick(); }
-function clearPick(){ if(confirm('Limpar toda a lista de separação?')){ pick=[]; savePick(); renderPick(); } }
+async function clearPick(){ if(await confirmDialog('Isso vai remover todos os itens da lista de separação.', {title:'Limpar lista', okText:'Limpar', danger:true})){ pick=[]; savePick(); renderPick(); } }
 
 /* ---------- Utils ---------- */
 // Extrai o ID de um link do Drive (formatos uc?id=, /d/ID, /file/d/ID)
