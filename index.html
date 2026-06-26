@@ -407,7 +407,7 @@
 /* =========================================================================
    Almoxarifado UDESC — app offline-first
    ========================================================================= */
-const APP_VERSION = 'v26';
+const APP_VERSION = 'v27';
 // Login com Google: mesmo Client ID do backend (não é secreto, fica visível de propósito).
 const CLIENT_ID = '768100742493-h1v8i5u47aip75rbcv52uvuej4o7v2mr.apps.googleusercontent.com';
 
@@ -490,7 +490,7 @@ function forceClose(id){
     r(out);
   }
   // Aviso pendente: disparado depois que o modal de origem fecha (evita conflito de histórico)
-  else if(_pendingAlert){ const a=_pendingAlert; _pendingAlert=null; alerx'tDialog(a.msg, a.opts); }
+  else if(_pendingAlert){ const a=_pendingAlert; _pendingAlert=null; alertDialog(a.msg, a.opts); }
 }
 
 /* Confirmação personalizada (Promise<boolean>) — substitui o confirm() nativo.
