@@ -171,6 +171,16 @@
   #error{ margin:16px; background:#fdecec; color:var(--vermelho); padding:14px; border-radius:10px; font-size:14px; line-height:1.5; }
   .spin{ display:inline-block; width:22px; height:22px; border:3px solid var(--cinza-100); border-top-color:var(--verde); border-radius:50%; animation:sp 1s linear infinite; }
   @keyframes sp{ to{ transform:rotate(360deg); } }
+
+  /* ====== Tela de login ====== */
+  #login-screen{ position:fixed; inset:0; z-index:250; display:none; flex-direction:column; align-items:center; justify-content:center; padding:28px; background:linear-gradient(160deg,var(--verde-escuro),#02331b); color:#fff; text-align:center; }
+  .login-card{ width:100%; max-width:360px; }
+  .login-logo{ width:84px; height:84px; margin-bottom:16px; }
+  .login-title{ font-size:30px; }
+  .login-sub{ font-size:11px; letter-spacing:1px; opacity:.85; margin-top:4px; }
+  .login-hint{ font-size:14px; line-height:1.5; opacity:.9; margin:22px 0; }
+  #gbtn{ display:flex; justify-content:center; min-height:44px; }
+  .login-error{ color:#ffd5d5; font-size:13.5px; line-height:1.5; margin-top:18px; min-height:18px; }
 </style>
 </head>
 <body>
@@ -208,6 +218,18 @@
 <div id="item-list"></div>
 <div id="empty" style="display:none">Nenhum item encontrado.</div>
 
+<!-- Tela de login (cobre o app enquanto ninguém entrou) -->
+<div id="login-screen">
+  <div class="login-card">
+    <img class="login-logo" src="./icon.svg" alt="UDESC">
+    <h1 class="titulo login-title">Almoxarifado</h1>
+    <p class="login-sub">UNIVERSIDADE DO ESTADO DE SANTA CATARINA</p>
+    <p class="login-hint">Entre com sua conta Google autorizada para acessar o inventário.</p>
+    <div id="gbtn"></div>
+    <p id="login-msg" class="login-error"></p>
+  </div>
+</div>
+
 <!-- Bottom nav -->
 <div id="bottom">
   <button onclick="setFilter('todos')"><span class="i"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 2H4c-1 0-2 .9-2 2v3.01c0 .72.43 1.34 1 1.69V20c0 1.1 1.1 2 2 2h14c.9 0 2-.9 2-2V8.7c.57-.35 1-.97 1-1.69V4c0-1.1-1-2-2-2zm-5 12H9v-2h6v2zm5-7H4V4l16-.02V7z"/></svg></span>Itens</button>
@@ -226,6 +248,7 @@
       <button class="btn btn-grey" onclick="closeModal('config')">Cancelar</button>
       <button class="btn btn-green" onclick="saveConfig()">Salvar e carregar</button>
     </div>
+    <div id="cfg-user" style="display:none; margin-top:16px; border-top:1px solid var(--cinza-100); padding-top:14px"></div>
   </div>
 </div>
 
@@ -353,19 +376,23 @@
   </div>
 </div>
 
+<script src="https://accounts.google.com/gsi/client" async></script>
 <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 /* =========================================================================
    Almoxarifado UDESC — app offline-first
    ========================================================================= */
-const APP_VERSION = 'v20';
+const APP_VERSION = 'v21';
+// Login com Google: mesmo Client ID do backend (não é secreto, fica visível de propósito).
+const CLIENT_ID = '768100742493-h1v8i5u47aip75rbcv52uvuej4o7v2mr.apps.googleusercontent.com';
 
 /* Ícones de leitura (SVG inline, herdam a cor via currentColor) */
 const ICON_QR = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6.5v3h-3v-3h3M11 5H5v6h6V5zm-1.5 9.5v3h-3v-3h3M11 13H5v6h6v-6zm6.5-6.5v3h-3v-3h3M19 5h-6v6h6V5zm-6 8h1.5v1.5H13V13zm1.5 1.5H16V16h-1.5v-1.5zM16 13h1.5v1.5H16V13zm-3 3h1.5v1.5H13V16zm1.5 1.5H16V19h-1.5v-1.5zM16 16h1.5v1.5H16V16zm1.5-1.5H19V16h-1.5v-1.5zm0 3H19V19h-1.5v-1.5zM22 7h-2V4h-3V2h5v5zm0 15v-5h-2v3h-3v2h5zM2 22h5v-2H4v-3H2v5zM2 2v5h2V4h3V2H2z"/></svg>';
 const ICON_TRASH = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg>';
 const URL_KEY = 'almox_script_url';
 let scriptUrl = localStorage.getItem(URL_KEY) || '';
+let session = null;             // sessão de login (crachá Google) — ver seção Autenticação
 let items = [];                 // dados em memória (snapshot mesclado com edições)
 let filter = 'todos';
 let locFilter = null;           // localização selecionada via QR/filtro
@@ -412,6 +439,7 @@ function openModal(id){
   history.pushState({ modal:id }, '');
   if(id==='pick') renderPick();
   if(id==='consumo') refreshConsumo();
+  if(id==='config') renderCfgUser();
 }
 // Fecha pelo histórico quando este é o modal do topo (mantém o Voltar coerente);
 // senão, fecha direto.
@@ -494,7 +522,92 @@ function saveConfig(){
   const u = document.getElementById('cfg-url').value.trim();
   if(!u){ alertDialog('Cole a URL do Web App do Apps Script para carregar o inventário.', {title:'URL necessária'}); return; }
   scriptUrl = u; localStorage.setItem(URL_KEY, u);
-  closeModal('config'); loadData();
+  closeModal('config'); requireAuth();
+}
+
+/* ---------- Autenticação (Login com Google) ---------- */
+function authToken(){ return session && session.token ? session.token : ''; }
+function isAuthError(json){ return /unauthorized|forbidden/i.test((json && json.error) || ''); }
+
+// Lê os dados do crachá (nome/e-mail/validade) só para EXIBIR — a segurança é no backend.
+function parseJwt(t){
+  try{
+    const b=t.split('.')[1].replace(/-/g,'+').replace(/_/g,'/');
+    const j=decodeURIComponent(atob(b).split('').map(c=>'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+    return JSON.parse(j);
+  }catch(e){ return {}; }
+}
+
+const saveSession  = (s)=> idbPut('kv', Object.assign({ k:'session' }, s));
+const getSessionDb = ()=> idbGet('kv','session');
+const clearSession = ()=> idbDel('kv','session');
+
+// Chamado pelo Google quando o usuário entra: guarda a sessão e abre o app.
+async function handleCredentialResponse(resp){
+  const token = resp.credential; const p = parseJwt(token);
+  session = { token, email:(p.email||'').toLowerCase(), name:p.name||'', exp:p.exp||0 };
+  await saveSession(session);
+  hideLogin();
+  document.getElementById('loading').style.display='block';
+  loadData();
+}
+
+// No carregamento: se há sessão lembrada, abre o app (funciona offline); senão pede login.
+async function requireAuth(){
+  if(!scriptUrl){ document.getElementById('loading').style.display='none'; openModal('config'); return; }
+  const s = await getSessionDb();
+  if(s && s.token){ session = s; hideLogin(); loadData(); }
+  else { showLogin(); }
+}
+
+// Trata recusa do backend: 'forbidden' = sem permissão; 'unauthorized' = crachá expirou.
+function handleAuthError(json){
+  document.getElementById('loading').style.display='none';
+  if(/forbidden/i.test(json.error||'')){
+    clearSession(); session=null;
+    showLogin('Sua conta não tem permissão para usar o app. Fale com o responsável.');
+  }else{
+    showLogin('Sua sessão expirou. Entre novamente.');
+  }
+}
+
+let _gisInited=false;
+function showLogin(message){
+  document.getElementById('loading').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('login-msg').textContent = message || '';
+  renderGoogleButton();
+}
+function hideLogin(){ document.getElementById('login-screen').style.display='none'; }
+
+// Desenha o botão "Entrar com o Google" (espera a biblioteca do Google terminar de carregar).
+function renderGoogleButton(){
+  if(!(window.google && google.accounts && google.accounts.id)){ setTimeout(renderGoogleButton, 300); return; }
+  if(!_gisInited){
+    google.accounts.id.initialize({ client_id: CLIENT_ID, callback: handleCredentialResponse });
+    _gisInited = true;
+  }
+  const c=document.getElementById('gbtn'); c.innerHTML='';
+  google.accounts.id.renderButton(c, { theme:'filled_blue', size:'large', text:'signin_with', shape:'pill' });
+}
+
+// Sair: encerra a sessão e volta para a tela de login.
+async function logout(){
+  await clearSession(); session=null;
+  try{ google.accounts.id.disableAutoSelect(); }catch(e){}
+  forceClose('config');
+  showLogin('Você saiu. Entre novamente para usar o app.');
+}
+
+// Mostra "Conectado como ..." + botão Sair dentro do ⚙️ Configurar.
+function renderCfgUser(){
+  const el=document.getElementById('cfg-user'); if(!el) return;
+  if(session && session.email){
+    el.style.display='block';
+    el.innerHTML='<div class="imp-lbl">Conta conectada</div>'
+      +'<div style="font-size:14px;margin-bottom:10px">'+esc(session.email)+'</div>'
+      +'<button class="btn btn-grey" style="width:100%;padding:11px" onclick="logout()">Sair desta conta</button>';
+  }else{ el.style.display='none'; }
 }
 
 /* ---------- Carregamento (rede -> fallback IndexedDB) ---------- */
@@ -503,9 +616,12 @@ async function loadData(){
   if(!scriptUrl){ showError('Configure a URL do Apps Script no ⚙️.'); return; }
   document.getElementById('loading').style.display='block';
   try{
-    const res = await fetch(scriptUrl, { method:'GET' });
+    const res = await fetch(scriptUrl + '?token=' + encodeURIComponent(authToken()), { method:'GET' });
     const json = await res.json();
-    if(!json.ok) throw new Error(json.error || 'Resposta inválida');
+    if(!json.ok){
+      if(isAuthError(json)){ handleAuthError(json); return; }
+      throw new Error(json.error || 'Resposta inválida');
+    }
     // mescla com edições locais ainda não sincronizadas (preserva o que está na fila)
     items = await mergeWithPending(json.rows);
     await saveSnapshot();
@@ -769,7 +885,7 @@ async function syncNow(){
   if(!navigator.onLine || !scriptUrl) { updateNet(); return; }
   const btn=document.getElementById('sync-btn'); btn.disabled=true; btn.textContent='Sincronizando…';
   const queue=await idbAll('queue');
-  let lastErr=null, failed=0, netDown=false;
+  let lastErr=null, failed=0, netDown=false, authProblem=false;
   for(const op of queue){
     try{
       let payload;
@@ -784,9 +900,13 @@ async function syncNow(){
       }else{
         payload={ action:'uploadImages', codigo:op.codigo, images:op.images };
       }
+      payload.token = authToken();
       const res=await fetch(scriptUrl,{ method:'POST', body:JSON.stringify(payload) });
       const json=await res.json();
-      if(!json.ok) throw new Error(json.error||'falha no servidor');
+      if(!json.ok){
+        if(isAuthError(json)){ authProblem=true; break; }
+        throw new Error(json.error||'falha no servidor');
+      }
       if(op.type==='images'){
         // troca previews locais pelas URLs reais do Drive
         const it=items.find(i=>i.codigo===op.codigo);
@@ -806,6 +926,7 @@ async function syncNow(){
   await refreshPending(); btn.disabled=false; btn.textContent='Sincronizar';
   render();
   if(document.getElementById('modal-consumo').classList.contains('open')) refreshConsumo();
+  if(authProblem){ showLogin('Sua sessão expirou. Entre novamente para sincronizar.'); return; }
   if(failed){
     const m = netDown
       ? 'Conexão instável. O que faltou será sincronizado quando a rede estabilizar.'
@@ -994,7 +1115,7 @@ async function loadConsumo(){
   let base=[];
   if(navigator.onLine && scriptUrl){
     try{
-      const res=await fetch(scriptUrl+'?action=consumo', { method:'GET' });
+      const res=await fetch(scriptUrl+'?action=consumo&token='+encodeURIComponent(authToken()), { method:'GET' });
       const json=await res.json();
       if(json.ok){ base=json.rows||[]; await idbPut('kv',{ k:'consumoSnap', rows:base }); }
     }catch(e){}
@@ -1173,8 +1294,7 @@ window.onload = async ()=>{
   const sp=await idbGet('kv','pick'); if(sp&&sp.pick) pick=sp.pick;
   await refreshPending();
   document.getElementById('cfg-url').value=scriptUrl;
-  if(!scriptUrl){ document.getElementById('loading').style.display='none'; openModal('config'); }
-  else loadData();
+  await requireAuth();   // mostra a tela de login OU abre o app, conforme a sessão
 };
 </script>
 </body>
