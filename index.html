@@ -241,14 +241,19 @@
 <!-- Modal: Config -->
 <div class="modal" id="modal-config">
   <div class="sheet">
-    <h2 class="titulo">Configurar conexão</h2>
-    <p class="hint">Cole a URL do Web App do Google Apps Script (termina em <b>/exec</b>).</p>
-    <input type="url" id="cfg-url" placeholder="https://script.google.com/macros/s/.../exec">
-    <div class="row-btns">
-      <button class="btn btn-grey" onclick="closeModal('config')">Cancelar</button>
-      <button class="btn btn-green" onclick="saveConfig()">Salvar e carregar</button>
+    <h2 class="titulo">Conta</h2>
+    <div id="cfg-user" style="display:none"></div>
+    <details class="more" style="margin-top:16px">
+      <summary>Configuração avançada</summary>
+      <p class="hint" style="margin-top:10px">URL do Web App do Apps Script (termina em <b>/exec</b>). Já vem configurada — altere apenas se o endereço do backend mudar.</p>
+      <input type="url" id="cfg-url" placeholder="https://script.google.com/macros/s/.../exec">
+      <div class="row-btns">
+        <button class="btn btn-green" onclick="saveConfig()">Salvar e recarregar</button>
+      </div>
+    </details>
+    <div class="row-btns" style="margin-top:16px">
+      <button class="btn btn-grey" onclick="closeModal('config')">Fechar</button>
     </div>
-    <div id="cfg-user" style="display:none; margin-top:16px; border-top:1px solid var(--cinza-100); padding-top:14px"></div>
   </div>
 </div>
 
@@ -383,7 +388,7 @@
 /* =========================================================================
    Almoxarifado UDESC — app offline-first
    ========================================================================= */
-const APP_VERSION = 'v23';
+const APP_VERSION = 'v24';
 // Login com Google: mesmo Client ID do backend (não é secreto, fica visível de propósito).
 const CLIENT_ID = '768100742493-h1v8i5u47aip75rbcv52uvuej4o7v2mr.apps.googleusercontent.com';
 

@@ -7,6 +7,10 @@
 
 ## Security Considerations
 
+> ✅ **RESOLVIDO em 2026-06-26 (v24)** pela feature `features/login-google/`: o backend
+> agora exige um crachá Google válido + e-mail numa lista de autorizados em toda
+> requisição (`requireAuth_` em `apps-script.gs`). O item abaixo fica como registro histórico.
+
 **API do backend é pública (sem autenticação):**
 
 - Risk: a implantação do Apps Script usa "Quem tem acesso: Qualquer pessoa". Qualquer

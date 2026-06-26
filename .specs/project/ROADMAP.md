@@ -19,6 +19,7 @@ rígido — é um guia. Itens em "Ideias" só viram trabalho depois de passarem 
 | Consumo | Gerar planilha Excel (.xlsx) do consumo por período |
 | PWA | Instalável, ícone, tela cheia, Service Worker (funciona offline) |
 | UX | Diálogos próprios (confirm/alert/prompt) e suporte ao botão Voltar do Android |
+| Segurança | **Login com Google** (lista de autorizados), backend valida identidade, autoria por ação, URL fixa — entregue em v24 (`features/login-google/`) |
 
 ## 🟡 Próximos passos sugeridos (a especificar antes de fazer)
 
@@ -28,8 +29,8 @@ Prioridade do mais valioso/menos arriscado para o mais ambicioso:
    Começar pelas funções "puras" (`natCmp`, `normCod`, `parseImport`, `isoDate_`).
 2. **Automatizar o número da versão** — hoje a versão fica em 3 lugares e é trocada
    à mão (ver `codebase/CONCERNS.md`). Risco de esquecer e quebrar o cache offline.
-3. **Proteção de acesso ao backend** — a API hoje é pública (qualquer um com a URL
-   pode ler/gravar). Avaliar um "token" simples (ver `codebase/CONCERNS.md`).
+3. ~~**Proteção de acesso ao backend**~~ — ✅ **FEITO** (v24): login com Google + lista de
+   autorizados. O backend agora exige identidade válida (ver `features/login-google/`).
 4. **Organizar o `index.html`** — separar CSS e JS em arquivos próprios para facilitar
    manutenção (decisão técnica → vai precisar de um `design.md`).
 

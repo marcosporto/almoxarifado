@@ -47,3 +47,6 @@ um problema aparecer, ou uma ideia surgir, anote aqui (com data). É o que evita
   (mantido só o "Ler QR" da barra inferior). Resolve a "Deferred Idea" da URL fixa.
 - **2026-06-26:** (v23) ícones de código de barras **revertidos** para QR a pedido do
   usuário (não ficaram bons). A URL fixa (v22) foi mantida.
+- **2026-06-26:** ✅ **Feature Login com Google CONCLUÍDA** — T14 (verificação fim a fim)
+  aprovada: entrar, autoria "Conferido por" e "Sair" funcionando. (v24) ⚙️ Configurar
+  ficou mais clean: conta + Sair em destaque, URL escondida em "Configuração avançada".
