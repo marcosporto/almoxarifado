@@ -307,6 +307,17 @@ function autorizarDrive() {
 }
 
 /**
+ * Rode UMA vez pelo editor (▶ Executar) ao ativar o LOGIN. Isso concede a permissão
+ * de "acessar serviços externos" (necessária para conferir o crachá do Google) e
+ * confirma que a aba "Autorizados" existe. Aprove a tela de permissão que aparecer.
+ */
+function autorizarLogin() {
+  UrlFetchApp.fetch('https://oauth2.googleapis.com/tokeninfo?id_token=teste', { muteHttpExceptions: true });
+  var temAba = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(AUTORIZADOS_SHEET) ? 'SIM' : 'NÃO (crie a aba!)';
+  Logger.log('Login autorizado. Aba "Autorizados" encontrada: ' + temAba);
+}
+
+/**
  * Rode UMA vez pelo editor (▶ Executar) para aplicar o novo padrão de colunas a
  * uma planilha que JÁ tem dados. O que ela faz, sem apagar seus dados de itens:
  *   • renomeia os cabeçalhos para o padrão (casando pelo significado, não pela escrita);
