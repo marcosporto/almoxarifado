@@ -58,6 +58,5 @@ um problema aparecer, ou uma ideia surgir, anote aqui (com data). É o que evita
   usuário cola a cópia do sistema, e `atualizarEstoque_` mescla por Código Interno
   (ignora zeros à esquerda), preservando enriquecimento; sumidos viram Estoque Sistema=0 +
   coluna "Situação"='Sem estoque'; conferência mantida e Diferença recalculada. Só backend
-  (app do celular não muda). **Falta:** usuário colar o .gs novo, salvar, recarregar a
-  planilha (pro menu aparecer) e testar. Decisão pendente de confirmar: nome da coluna
-  "Situação" com valor "Sem estoque" (interpretação minha).
+  (app do celular não muda). ✅ **CONCLUÍDA e testada pelo usuário em 2026-06-26** —
+  funcionou, enriquecimento preservado. Coluna "Situação" / valor "Sem estoque" confirmados.
