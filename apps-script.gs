@@ -23,6 +23,9 @@ var CLIENT_ID = '768100742493-h1v8i5u47aip75rbcv52uvuej4o7v2mr.apps.googleuserco
 // Aba que guarda a lista de e-mails que podem usar o app (coluna "E-mail").
 var AUTORIZADOS_SHEET = 'Autorizados';
 
+// Aba de staging para atualizar o estoque a partir da cópia do sistema do almoxarifado.
+var IMPORTAR_SHEET = 'Importar';
+
 // Definição canônica das colunas: chave interna (usada pelo app) -> rótulo na planilha.
 // Padrão dos rótulos: nome descritivo em Português, "Grupo + Qualificador"
 // (ex.: Estoque Sistema / Estoque Mínimo, Código Interno / Código de Barras).
@@ -42,6 +45,7 @@ var COLUMNS = [
   { key: 'observacoes',    label: 'Observações' },
   { key: 'inventariado',   label: 'Status do Inventário' },
   { key: 'conferidoPor',   label: 'Conferido por' },
+  { key: 'situacao',       label: 'Situação' },
   { key: 'imagens',        label: 'Imagens' }
 ];
 var HEADERS = COLUMNS.map(function (c) { return c.label; });
@@ -83,7 +87,7 @@ function getSheet_() {
 // Acrescenta ao cabeçalho qualquer coluna nova que ainda não exista
 // (planilhas antigas não têm as colunas de imagens/observações/status etc.)
 var WANT_KEYS = ['codigoBarras', 'localizacao', 'diferenca', 'estoqueMinimo', 'validade',
-                 'diasAviso', 'observacoes', 'inventariado', 'conferidoPor', 'imagens'];
+                 'diasAviso', 'observacoes', 'inventariado', 'conferidoPor', 'situacao', 'imagens'];
 function ensureColumns_(sheet) {
   var lastCol = sheet.getLastColumn();
   var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
@@ -146,6 +150,7 @@ function aliases_() {
     'status de inventario': 'inventariado',
     'status do inventario': 'inventariado',
     'conferido por': 'conferidoPor',
+    'situacao': 'situacao',
     'imagens': 'imagens'
   };
 }
@@ -615,4 +620,156 @@ function deleteConsumo_(body) {
     if (String(ids[i][0]) === id) { sheet.deleteRow(i + 2); return { ok: true }; }
   }
   return { ok: true }; // já não existe — idempotente
+}
+
+/* ------------------------------------------------------------------ */
+/* Atualizar Estoque — mescla a cópia do sistema sem perder o          */
+/* enriquecimento (fotos, código de barras, observações, etc.)         */
+/* ------------------------------------------------------------------ */
+
+// Menu na planilha (aparece ao ABRIR a planilha).
+function onOpen() {
+  SpreadsheetApp.getUi()
+    .createMenu('🔄 Almoxarifado')
+    .addItem('1) Preparar aba "Importar"', 'prepararImportar')
+    .addItem('2) Atualizar estoque (mesclar)', 'atualizarEstoqueMenu')
+    .addToUi();
+}
+
+// Cria/limpa a aba "Importar" e formata o Código como texto (preserva zeros à esquerda).
+function prepararImportar() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sh = ss.getSheetByName(IMPORTAR_SHEET);
+  if (!sh) sh = ss.insertSheet(IMPORTAR_SHEET);
+  sh.clearContents();
+  sh.getRange(1, 1, sh.getMaxRows(), 1).setNumberFormat('@'); // coluna A (Código) como texto
+  ss.setActiveSheet(sh);
+  SpreadsheetApp.getUi().alert('Aba "Importar" pronta',
+    'Cole aqui a tabela copiada do sistema — COM a linha de títulos — a partir da célula A1.\n\n' +
+    'Depois use o menu: 🔄 Almoxarifado → 2) Atualizar estoque.',
+    SpreadsheetApp.getUi().ButtonSet.OK);
+}
+
+// Chamado pelo menu: roda a mesclagem e mostra o resumo.
+function atualizarEstoqueMenu() {
+  var ui = SpreadsheetApp.getUi();
+  var res = atualizarEstoque_();
+  if (!res.ok) { ui.alert('Atualizar estoque', res.error, ui.ButtonSet.OK); return; }
+  ui.alert('Estoque atualizado',
+    'Atualizados: ' + res.atualizados + '\n' +
+    'Novos: ' + res.novos + '\n' +
+    'Marcados "Sem estoque": ' + res.semEstoque,
+    ui.ButtonSet.OK);
+}
+
+// Mapeia as colunas da aba Importar pelo cabeçalho.
+function buildImportColMap_(headerRow) {
+  var map = {};
+  headerRow.forEach(function (h, i) {
+    var k = norm_(h);
+    if (k === 'codigo' || k === 'codigo interno') { if (map.codigo === undefined) map.codigo = i; }
+    else if (k === 'descricao') { if (map.descricao === undefined) map.descricao = i; }
+    else if (k === 'unidade de distribuicao' || k === 'unidade') { if (map.unidade === undefined) map.unidade = i; }
+    else if (k === 'quantidade' || k === 'estoque sistema') { if (map.estoqueSistema === undefined) map.estoqueSistema = i; }
+  });
+  return map;
+}
+
+// Código sem zeros à esquerda e sem espaços (casa 018937001 com 18937001).
+function normCodigo_(c) {
+  return String(c == null ? '' : c).replace(/\s+/g, '').replace(/^0+/, '');
+}
+
+// "63,00" / "1.234,00" -> número.
+function parseNumBR_(v) {
+  if (v === '' || v == null) return 0;
+  if (typeof v === 'number') return v;
+  var s = String(v).trim().replace(/\./g, '').replace(',', '.');
+  var n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+}
+
+// Mescla a aba "Importar" na aba "Estoque" por Código Interno, preservando o enriquecimento.
+function atualizarEstoque_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var imp = ss.getSheetByName(IMPORTAR_SHEET);
+  if (!imp) return { ok: false, error: 'Crie a aba "' + IMPORTAR_SHEET + '" (menu 1) e cole os dados do sistema.' };
+  var impVals = imp.getDataRange().getValues();
+  if (impVals.length < 2) return { ok: false, error: 'A aba "' + IMPORTAR_SHEET + '" está vazia. Cole os dados COM o cabeçalho e tente de novo.' };
+
+  var impCol = buildImportColMap_(impVals[0]);
+  if (impCol.codigo === undefined || impCol.estoqueSistema === undefined)
+    return { ok: false, error: 'Não achei as colunas "Código" e "Quantidade" no cabeçalho da aba "' + IMPORTAR_SHEET + '". Cole a tabela COM a linha de títulos.' };
+
+  var sheet = getSheet_();                 // garante a coluna "Situação"
+  var data = sheet.getDataRange().getValues();
+  var col = buildColMap_(data[0]);
+  var width = data[0].length;
+
+  // índice: código normalizado -> linha no array (0-based, inclui o cabeçalho)
+  var idx = {};
+  for (var r = 1; r < data.length; r++) {
+    var cod = col.codigo !== undefined ? data[r][col.codigo] : '';
+    if (cod === '' || cod === null) continue;
+    idx[normCodigo_(cod)] = r;
+  }
+
+  function recalcDiff(rowArr) {
+    if (col.diferenca === undefined || col.estoqueFisico === undefined) return;
+    var fis = rowArr[col.estoqueFisico];
+    if (fis === '' || fis === null) return;            // sem conferência -> não mexe
+    var sis = col.estoqueSistema !== undefined ? Number(rowArr[col.estoqueSistema]) || 0 : 0;
+    rowArr[col.diferenca] = (Number(fis) || 0) - sis;
+  }
+
+  var atualizados = 0, novos = 0, semEstoque = 0, vistos = {};
+
+  for (var i = 1; i < impVals.length; i++) {
+    var codigoRaw = String(impVals[i][impCol.codigo] == null ? '' : impVals[i][impCol.codigo]).trim();
+    if (!codigoRaw) continue;
+    var nc = normCodigo_(codigoRaw);
+    vistos[nc] = true;
+    var desc = impCol.descricao !== undefined ? String(impVals[i][impCol.descricao] || '') : '';
+    var uni  = impCol.unidade   !== undefined ? String(impVals[i][impCol.unidade] || '') : '';
+    var qtd  = parseNumBR_(impVals[i][impCol.estoqueSistema]);
+
+    if (idx[nc] !== undefined) {                       // já existe -> atualiza só o sistema
+      var rr = data[idx[nc]];
+      if (col.descricao !== undefined && desc) rr[col.descricao] = desc;
+      if (col.unidade !== undefined && uni)    rr[col.unidade] = uni;
+      if (col.estoqueSistema !== undefined)    rr[col.estoqueSistema] = qtd;
+      if (col.situacao !== undefined)          rr[col.situacao] = '';   // voltou ao sistema
+      recalcDiff(rr);
+      atualizados++;
+    } else {                                            // novo -> linha nova
+      var nr = [];
+      for (var k = 0; k < width; k++) nr.push('');
+      if (col.codigo !== undefined)         nr[col.codigo] = codigoRaw;
+      if (col.descricao !== undefined)      nr[col.descricao] = desc;
+      if (col.unidade !== undefined)        nr[col.unidade] = uni;
+      if (col.estoqueSistema !== undefined) nr[col.estoqueSistema] = qtd;
+      if (col.inventariado !== undefined)   nr[col.inventariado] = 'Não';
+      data.push(nr);
+      novos++;
+    }
+  }
+
+  // Itens que sumiram do sistema -> Estoque Sistema = 0 + "Sem estoque"
+  for (var r2 = 1; r2 < data.length; r2++) {
+    var c2 = col.codigo !== undefined ? data[r2][col.codigo] : '';
+    if (c2 === '' || c2 === null) continue;
+    if (vistos[normCodigo_(c2)]) continue;             // veio no import -> ok
+    var rr2 = data[r2];
+    var jaSem = col.situacao !== undefined && String(rr2[col.situacao] || '') === 'Sem estoque';
+    if (col.estoqueSistema !== undefined) rr2[col.estoqueSistema] = 0;
+    if (col.situacao !== undefined)       rr2[col.situacao] = 'Sem estoque';
+    recalcDiff(rr2);
+    if (!jaSem) semEstoque++;
+  }
+
+  var need = data.length - sheet.getMaxRows();
+  if (need > 0) sheet.insertRowsAfter(sheet.getMaxRows(), need);
+  sheet.getRange(1, 1, data.length, width).setValues(data);
+
+  return { ok: true, atualizados: atualizados, novos: novos, semEstoque: semEstoque };
 }

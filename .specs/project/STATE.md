@@ -53,3 +53,11 @@ um problema aparecer, ou uma ideia surgir, anote aqui (com data). É o que evita
 - **2026-06-26:** quick task (v25) — botão de leitura (QR/cód. de barras) nos campos de
   busca de "Saída avulsa" e "Lista de separação" (`scanIntoSearch`). A busca desses campos
   já cobria descrição + código + código de barras (nenhuma mudança necessária ali).
+- **2026-06-26:** feature **Atualizar Estoque (mesclar)** — `features/atualizar-estoque/`.
+  Backend (apps-script.gs): menu "🔄 Almoxarifado" na planilha → prepara aba "Importar",
+  usuário cola a cópia do sistema, e `atualizarEstoque_` mescla por Código Interno
+  (ignora zeros à esquerda), preservando enriquecimento; sumidos viram Estoque Sistema=0 +
+  coluna "Situação"='Sem estoque'; conferência mantida e Diferença recalculada. Só backend
+  (app do celular não muda). **Falta:** usuário colar o .gs novo, salvar, recarregar a
+  planilha (pro menu aparecer) e testar. Decisão pendente de confirmar: nome da coluna
+  "Situação" com valor "Sem estoque" (interpretação minha).
