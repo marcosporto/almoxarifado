@@ -275,7 +275,10 @@
     <h2 class="titulo">Lista de separação</h2>
     <p class="hint">Adicione itens e quantidades. A rota é ordenada por localização para otimizar a coleta.</p>
     <button class="btn btn-fields" style="margin-top:0;margin-bottom:14px" onclick="openImport()">Importar requisição</button>
-    <input type="text" id="pick-search" placeholder="Buscar item para adicionar…" oninput="renderPickSearch()" autocomplete="off">
+    <div class="field-scan" style="margin-bottom:12px">
+      <input type="text" id="pick-search" placeholder="Buscar por descrição, código ou cód. de barras…" oninput="renderPickSearch()" autocomplete="off" style="margin-bottom:0">
+      <button class="scan-btn" type="button" onclick="scanIntoSearch('pick-search', renderPickSearch)" title="Ler QR / código de barras"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6.5v3h-3v-3h3M11 5H5v6h6V5zm-1.5 9.5v3h-3v-3h3M11 13H5v6h6v-6zm6.5-6.5v3h-3v-3h3M19 5h-6v6h6V5zm-6 8h1.5v1.5H13V13zm1.5 1.5H16V16h-1.5v-1.5zM16 13h1.5v1.5H16V13zm-3 3h1.5v1.5H13V16zm1.5 1.5H16V19h-1.5v-1.5zM16 16h1.5v1.5H16V16zm1.5-1.5H19V16h-1.5v-1.5zm0 3H19V19h-1.5v-1.5zM22 7h-2V4h-3V2h5v5zm0 15v-5h-2v3h-3v2h5zM2 22h5v-2H4v-3H2v5zM2 2v5h2V4h3V2H2z"/></svg></button>
+    </div>
     <div id="pick-search-results" style="max-height:180px; overflow-y:auto; margin-bottom:12px"></div>
     <h3 class="titulo" style="font-size:14px; color:var(--verde-escuro); margin-bottom:6px">Rota de coleta (<span id="pick-count">0</span>)</h3>
     <div id="pick-list"></div>
@@ -334,7 +337,10 @@
   <div class="sheet">
     <h2 class="titulo">Registrar saída avulsa</h2>
     <label class="imp-lbl">Item</label>
-    <input type="text" id="saida-busca" placeholder="Buscar por código ou descrição…" oninput="renderSaidaBusca()" autocomplete="off">
+    <div class="field-scan" style="margin-bottom:8px">
+      <input type="text" id="saida-busca" placeholder="Buscar por descrição, código ou cód. de barras…" oninput="renderSaidaBusca()" autocomplete="off" style="margin-bottom:0">
+      <button class="scan-btn" type="button" onclick="scanIntoSearch('saida-busca', renderSaidaBusca)" title="Ler QR / código de barras"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6.5v3h-3v-3h3M11 5H5v6h6V5zm-1.5 9.5v3h-3v-3h3M11 13H5v6h6v-6zm6.5-6.5v3h-3v-3h3M19 5h-6v6h6V5zm-6 8h1.5v1.5H13V13zm1.5 1.5H16V16h-1.5v-1.5zM16 13h1.5v1.5H16V13zm-3 3h1.5v1.5H13V16zm1.5 1.5H16V19h-1.5v-1.5zM16 16h1.5v1.5H16V16zm1.5-1.5H19V16h-1.5v-1.5zm0 3H19V19h-1.5v-1.5zM22 7h-2V4h-3V2h5v5zm0 15v-5h-2v3h-3v2h5zM2 22h5v-2H4v-3H2v5zM2 2v5h2V4h3V2H2z"/></svg></button>
+    </div>
     <div id="saida-res" style="max-height:160px;overflow-y:auto;margin-bottom:8px"></div>
     <div id="saida-sel" class="hint" style="margin-bottom:10px">Nenhum item selecionado.</div>
     <label class="imp-lbl">Quantidade</label>
@@ -388,7 +394,7 @@
 /* =========================================================================
    Almoxarifado UDESC — app offline-first
    ========================================================================= */
-const APP_VERSION = 'v24';
+const APP_VERSION = 'v25';
 // Login com Google: mesmo Client ID do backend (não é secreto, fica visível de propósito).
 const CLIENT_ID = '768100742493-h1v8i5u47aip75rbcv52uvuej4o7v2mr.apps.googleusercontent.com';
 
@@ -985,6 +991,13 @@ async function startScan(onResult, texts){
 function scanInto(inputId, kind){
   startScan((text)=>{ const el=document.getElementById(inputId); if(el) el.value=text.trim(); },
     SCAN_TEXTS[kind] || SCAN_TEXTS.barras);
+}
+// Como scanInto, mas também dispara a busca do campo (usado nos campos de busca de itens).
+function scanIntoSearch(inputId, render){
+  startScan((text)=>{
+    const el=document.getElementById(inputId);
+    if(el){ el.value=text.trim(); if(typeof render==='function') render(); }
+  }, SCAN_TEXTS.busca);
 }
 // Lê um QR/código de barras e busca por ele (código do item ou código de barras)
 function scanSearch(){

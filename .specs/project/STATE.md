@@ -50,3 +50,6 @@ um problema aparecer, ou uma ideia surgir, anote aqui (com data). É o que evita
 - **2026-06-26:** ✅ **Feature Login com Google CONCLUÍDA** — T14 (verificação fim a fim)
   aprovada: entrar, autoria "Conferido por" e "Sair" funcionando. (v24) ⚙️ Configurar
   ficou mais clean: conta + Sair em destaque, URL escondida em "Configuração avançada".
+- **2026-06-26:** quick task (v25) — botão de leitura (QR/cód. de barras) nos campos de
+  busca de "Saída avulsa" e "Lista de separação" (`scanIntoSearch`). A busca desses campos
+  já cobria descrição + código + código de barras (nenhuma mudança necessária ali).
