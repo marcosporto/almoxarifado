@@ -14,6 +14,7 @@ um problema aparecer, ou uma ideia surgir, anote aqui (com data). É o que evita
 | — | Colunas mapeadas por NOME do cabeçalho | A ordem das colunas pode mudar na planilha sem quebrar o app |
 | — | Diálogos próprios no lugar de `alert/confirm/prompt` | Visual consistente e integração com o botão Voltar do Android |
 | 2026-06-25 | Adotar metodologia spec-driven (esta pasta `.specs/`) | Profissionalizar a manutenção e registrar decisões |
+| 2026-06-25 | Nova feature **Login com Google** (ver `../features/login-google/`) | Controlar acesso + registrar autoria sem perder o offline. Decisões: lista de e-mails autorizada, "logar uma vez e lembrar", protege o app inteiro, backend valida a identidade |
 
 > As linhas com "—" são decisões anteriores à adoção da metodologia; a data exata
 > não foi registrada. Daqui pra frente, sempre preencher a data.
@@ -28,6 +29,11 @@ um problema aparecer, ou uma ideia surgir, anote aqui (com data). É o que evita
   do Apps Script — editar o código não basta.
 
 ## ⏸️ Onde paramos (para retomar depois)
-- **2026-06-25:** pasta `.specs/` criada e codebase mapeado. Próximo passo natural:
-  escolher 1 item do `ROADMAP.md` e fazer o ciclo SPECIFY → … → EXECUTE como primeiro
-  exercício prático da metodologia.
+- **2026-06-25:** pasta `.specs/` criada e codebase mapeado.
+- **2026-06-25:** feature **Login com Google** — fases SPECIFY, DESIGN e TASKS concluídas.
+- **2026-06-26:** EXECUTE em andamento. ✅ Fase 0: T1 (credencial Google criada, projeto
+  "Almoxarifado UDESC", CLIENT_ID em `tasks.md`) e T2 (aba "Autorizados" na planilha).
+  ✅ Fase 1 backend (T3–T7): `apps-script.gs` agora valida o crachá Google (`verifyToken_`),
+  confere a lista (`isAuthorized_`), bloqueia `doGet`/`doPost` (`requireAuth_`) e registra
+  autoria ("Conferido por" / "Registrado por"). **Próximo:** Fase 2 frontend (T8–T12).
+  ⚠️ NÃO reimplantar o Apps Script ainda — esperar o frontend, senão o app ao vivo quebra.
