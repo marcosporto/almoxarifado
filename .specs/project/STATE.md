@@ -41,3 +41,7 @@ um problema aparecer, ou uma ideia surgir, anote aqui (com data). É o que evita
   requisições e botão "Sair" (no ⚙️). `sw.js` e `APP_VERSION` subiram para **v21**.
   **Próximo:** publicar (implantar backend + push frontend) e T14 (verificação fim a fim).
   ⚠️ Implantar backend e publicar frontend JUNTOS (senão o app ao vivo quebra).
+- **2026-06-26:** backend implantado pelo usuário; login no ar. Quick task (v22): URL do
+  backend agora é fixa no código (`DEFAULT_SCRIPT_URL`) — ninguém mais precisa configurar
+  o ⚙️; e os ícones de QR dos botões de leitura (topo + cards) viraram código de barras
+  (mantido só o "Ler QR" da barra inferior). Resolve a "Deferred Idea" da URL fixa.

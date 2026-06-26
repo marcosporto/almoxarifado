@@ -193,7 +193,7 @@
   </div>
   <div class="search-wrap">
     <input type="search" id="search-box" placeholder="Buscar: descrição, código ou código de barras…" oninput="render()">
-    <button class="search-scan" onclick="scanSearch()" title="Ler código para buscar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6.5v3h-3v-3h3M11 5H5v6h6V5zm-1.5 9.5v3h-3v-3h3M11 13H5v6h6v-6zm6.5-6.5v3h-3v-3h3M19 5h-6v6h6V5zm-6 8h1.5v1.5H13V13zm1.5 1.5H16V16h-1.5v-1.5zM16 13h1.5v1.5H16V13zm-3 3h1.5v1.5H13V16zm1.5 1.5H16V19h-1.5v-1.5zM16 16h1.5v1.5H16V16zm1.5-1.5H19V16h-1.5v-1.5zm0 3H19V19h-1.5v-1.5zM22 7h-2V4h-3V2h5v5zm0 15v-5h-2v3h-3v2h5zM2 22h5v-2H4v-3H2v5zM2 2v5h2V4h3V2H2z"/></svg></button>
+    <button class="search-scan" onclick="scanSearch()" title="Ler código para buscar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2,6H4V18H2V6M5,6H6V18H5V6M7,6H10V18H7V6M11,6H12V18H11V6M14,6H16V18H14V6M17,6H20V18H17V6M21,6H22V18H21V6Z"/></svg></button>
   </div>
 </header>
 
@@ -383,15 +383,18 @@
 /* =========================================================================
    Almoxarifado UDESC — app offline-first
    ========================================================================= */
-const APP_VERSION = 'v21';
+const APP_VERSION = 'v22';
 // Login com Google: mesmo Client ID do backend (não é secreto, fica visível de propósito).
 const CLIENT_ID = '768100742493-h1v8i5u47aip75rbcv52uvuej4o7v2mr.apps.googleusercontent.com';
 
 /* Ícones de leitura (SVG inline, herdam a cor via currentColor) */
-const ICON_QR = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6.5v3h-3v-3h3M11 5H5v6h6V5zm-1.5 9.5v3h-3v-3h3M11 13H5v6h6v-6zm6.5-6.5v3h-3v-3h3M19 5h-6v6h6V5zm-6 8h1.5v1.5H13V13zm1.5 1.5H16V16h-1.5v-1.5zM16 13h1.5v1.5H16V13zm-3 3h1.5v1.5H13V16zm1.5 1.5H16V19h-1.5v-1.5zM16 16h1.5v1.5H16V16zm1.5-1.5H19V16h-1.5v-1.5zm0 3H19V19h-1.5v-1.5zM22 7h-2V4h-3V2h5v5zm0 15v-5h-2v3h-3v2h5zM2 22h5v-2H4v-3H2v5zM2 2v5h2V4h3V2H2z"/></svg>';
+const ICON_BARCODE = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2,6H4V18H2V6M5,6H6V18H5V6M7,6H10V18H7V6M11,6H12V18H11V6M14,6H16V18H14V6M17,6H20V18H17V6M21,6H22V18H21V6Z"/></svg>';
 const ICON_TRASH = '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 9v10H8V9h8m-1.5-6h-5l-1 1H5v2h14V4h-3.5l-1-1zM18 7H6v12c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7z"/></svg>';
 const URL_KEY = 'almox_script_url';
-let scriptUrl = localStorage.getItem(URL_KEY) || '';
+// URL fixa do backend (Apps Script): quem não tiver uma URL salva no aparelho usa esta,
+// então ninguém precisa configurar nada. O ⚙️ continua permitindo trocar, se necessário.
+const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyz8aR46Y-oFY7ni75umNh3qEvCJv3Fxiak35dd40WMsVa7Uqp_-AKkUYxh3O11qu6Z/exec';
+let scriptUrl = localStorage.getItem(URL_KEY) || DEFAULT_SCRIPT_URL;
 let session = null;             // sessão de login (crachá Google) — ver seção Autenticação
 let items = [];                 // dados em memória (snapshot mesclado com edições)
 let filter = 'todos';
@@ -745,13 +748,13 @@ function card(it){
       <div class="field"><label>Código de barras</label>
         <div class="field-scan">
           <input id="barras-${it.codigo}" value="${esc(it.codigoBarras)}" inputmode="numeric">
-          <button class="scan-btn" onclick="scanInto('barras-${it.codigo}','barras')" title="Ler código de barras">${ICON_QR}</button>
+          <button class="scan-btn" onclick="scanInto('barras-${it.codigo}','barras')" title="Ler código de barras">${ICON_BARCODE}</button>
         </div>
       </div>
       <div class="field"><label>Localização</label>
         <div class="field-scan">
           <input id="locx-${it.codigo}" value="${esc(it.localizacao)}" placeholder="Ex.: Prateleira 1">
-          <button class="scan-btn" onclick="scanInto('locx-${it.codigo}','locField')" title="Ler QR Code">${ICON_QR}</button>
+          <button class="scan-btn" onclick="scanInto('locx-${it.codigo}','locField')" title="Ler QR Code">${ICON_BARCODE}</button>
         </div>
       </div>
       <div class="row2">
