@@ -294,6 +294,19 @@
   <img id="lightbox-img" alt="">
 </div>
 
+<!-- Revisar / girar fotos antes de enviar -->
+<div class="modal" id="modal-fotos">
+  <div class="sheet">
+    <h2 class="titulo">Revisar fotos</h2>
+    <p class="hint">Gire se precisar para a foto ficar em pé e confirme o envio.</p>
+    <div id="fotos-review"></div>
+    <div class="row-btns" style="margin-top:6px">
+      <button class="btn btn-grey" onclick="closeModal('fotos')">Cancelar</button>
+      <button class="btn btn-green" onclick="enviarFotos()">Enviar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: Importar requisição (duas colunas: códigos e quantidades, casadas por linha) -->
 <div class="modal" id="modal-import">
   <div class="sheet">
@@ -394,7 +407,7 @@
 /* =========================================================================
    Almoxarifado UDESC — app offline-first
    ========================================================================= */
-const APP_VERSION = 'v25';
+const APP_VERSION = 'v26';
 // Login com Google: mesmo Client ID do backend (não é secreto, fica visível de propósito).
 const CLIENT_ID = '768100742493-h1v8i5u47aip75rbcv52uvuej4o7v2mr.apps.googleusercontent.com';
 
@@ -415,6 +428,7 @@ let pick = [];                  // lista de separação
 let consumo = [];               // lançamentos de saída (servidor + pendentes)
 let importTarget = 'pick';      // destino da importação: 'pick' ou 'consumo'
 let saidaSel = null;            // item selecionado no formulário de saída avulsa
+let fotoReview = null;          // fotos aguardando revisão/giro antes do envio
 
 /* ---------- IndexedDB (snapshot, fila de sincronização, picking) ---------- */
 const DB_NAME = 'almoxUdesc', DB_VER = 1;
@@ -476,7 +490,7 @@ function forceClose(id){
     r(out);
   }
   // Aviso pendente: disparado depois que o modal de origem fecha (evita conflito de histórico)
-  else if(_pendingAlert){ const a=_pendingAlert; _pendingAlert=null; alertDialog(a.msg, a.opts); }
+  else if(_pendingAlert){ const a=_pendingAlert; _pendingAlert=null; alerx'tDialog(a.msg, a.opts); }
 }
 
 /* Confirmação personalizada (Promise<boolean>) — substitui o confirm() nativo.
@@ -778,7 +792,7 @@ function card(it){
     <div class="actions">
       <input class="qty-input" id="qty-${it.codigo}" type="number" inputmode="numeric" min="0" placeholder="Conferido" value="${fisico==null?'':fisico}">
       <label class="btn btn-photo" title="Adicionar fotos">📷
-        <input type="file" accept="image/*" capture="environment" multiple style="display:none" onchange="addPhotos('${esc(it.codigo)}', this.files)">
+        <input type="file" accept="image/*" capture="environment" multiple style="display:none" onchange="pickPhotos('${esc(it.codigo)}', this.files)">
       </label>
       <button class="btn btn-conf${it.inventariado?' done':''}" onclick="confirmInv('${esc(it.codigo)}')">${it.inventariado?'✓ Feito':'Confirmar'}</button>
     </div>
@@ -841,15 +855,63 @@ async function salvarCampos(codigo){
 function msg(codigo,t){ const m=document.getElementById('msg-'+codigo); if(m){ m.textContent=t; setTimeout(()=>{ if(m.textContent===t)m.textContent=''; },4000);} }
 
 /* ---------- Fotos: comprime, mostra preview, enfileira ---------- */
-async function addPhotos(codigo, files){
+// 1) Seleciona as fotos, comprime e abre a revisão (onde dá para girar).
+async function pickPhotos(codigo, files){
   const it=items.find(i=>i.codigo===codigo); if(!it||!files.length) return;
   msg(codigo,'Processando '+files.length+' foto(s)…');
+  const arr=[];
+  for(const f of files){ const d=await compress(f); if(d) arr.push({ dataUrl:d }); }
+  msg(codigo,'');
+  if(!arr.length) return;
+  fotoReview={ codigo, items:arr };
+  renderFotosReview();
+  openModal('fotos');
+}
+// Gira uma imagem (dataURL) 90° no sentido horário e devolve um novo dataURL.
+function rotate90(dataUrl){
+  return new Promise((res)=>{
+    const img=new Image();
+    img.onload=()=>{
+      const c=document.createElement('canvas');
+      c.width=img.height; c.height=img.width;
+      const ctx=c.getContext('2d');
+      ctx.translate(c.width/2, c.height/2); ctx.rotate(Math.PI/2);
+      ctx.drawImage(img, -img.width/2, -img.height/2);
+      res(c.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror=()=>res(dataUrl);
+    img.src=dataUrl;
+  });
+}
+function renderFotosReview(){
+  const box=document.getElementById('fotos-review'); if(!box) return; box.innerHTML='';
+  const list=fotoReview?fotoReview.items:[];
+  list.forEach((p,i)=>{
+    const d=document.createElement('div');
+    d.style.cssText='margin-bottom:16px; text-align:center';
+    d.innerHTML=`<img src="${p.dataUrl}" style="max-width:100%; max-height:48vh; border-radius:10px; border:1px solid var(--cinza-100)">
+      <div><button class="btn btn-fields" style="width:auto; margin-top:8px; padding:10px 20px" onclick="girarFoto(${i})">🔄 Girar</button></div>`;
+    box.appendChild(d);
+  });
+}
+async function girarFoto(i){
+  if(!fotoReview||!fotoReview.items[i]) return;
+  fotoReview.items[i].dataUrl=await rotate90(fotoReview.items[i].dataUrl);
+  renderFotosReview();
+}
+// 2) Confirma: envia as fotos revisadas para a fila (e sincroniza).
+async function enviarFotos(){
+  const r=fotoReview; fotoReview=null;
+  closeModal('fotos');
+  if(r && r.items.length) await sendPhotos(r.codigo, r.items.map(x=>x.dataUrl));
+}
+async function sendPhotos(codigo, dataUrls){
+  const it=items.find(i=>i.codigo===codigo); if(!it||!dataUrls.length) return;
   const previews=[], images=[];
-  for(const f of files){
-    const dataUrl=await compress(f);
-    previews.push(dataUrl);
-    images.push({ name:codigo+'_'+Date.now(), mime:'image/jpeg', data:dataUrl.split(',')[1] });
-  }
+  dataUrls.forEach(d=>{
+    previews.push(d);
+    images.push({ name:codigo+'_'+Date.now(), mime:'image/jpeg', data:d.split(',')[1] });
+  });
   const id=await enqueue({ type:'images', codigo, images, previews });
   it.pendingImages=(it.pendingImages||[]).concat(previews.map(p=>({opId:id,src:p})));
   await saveSnapshot(); render();

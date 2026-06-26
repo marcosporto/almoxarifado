@@ -60,3 +60,7 @@ um problema aparecer, ou uma ideia surgir, anote aqui (com data). É o que evita
   coluna "Situação"='Sem estoque'; conferência mantida e Diferença recalculada. Só backend
   (app do celular não muda). ✅ **CONCLUÍDA e testada pelo usuário em 2026-06-26** —
   funcionou, enriquecimento preservado. Coluna "Situação" / valor "Sem estoque" confirmados.
+- **2026-06-26:** quick task (v26) — ao adicionar foto, abre tela "Revisar fotos" com botão
+  🔄 Girar (gira 90° antes de enviar). `pickPhotos`→revisão→`enviarFotos`/`sendPhotos`;
+  `rotate90` via canvas. Escolhido girar no momento de adicionar (confiável; sem problema
+  de CORS do Drive). Fotos antigas tortas: re-tirar com o novo fluxo.
