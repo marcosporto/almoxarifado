@@ -17,6 +17,12 @@
 var SHEET_NAME = 'Estoque';
 var IMAGE_FOLDER_NAME = 'Almoxarifado UDESC - Imagens';
 
+// ====== Login com Google (autenticação) ======
+// Client ID criado no Google Cloud (NÃO é secreto — também fica visível no index.html).
+var CLIENT_ID = '768100742493-h1v8i5u47aip75rbcv52uvuej4o7v2mr.apps.googleusercontent.com';
+// Aba que guarda a lista de e-mails que podem usar o app (coluna "E-mail").
+var AUTORIZADOS_SHEET = 'Autorizados';
+
 // Definição canônica das colunas: chave interna (usada pelo app) -> rótulo na planilha.
 // Padrão dos rótulos: nome descritivo em Português, "Grupo + Qualificador"
 // (ex.: Estoque Sistema / Estoque Mínimo, Código Interno / Código de Barras).
@@ -35,6 +41,7 @@ var COLUMNS = [
   { key: 'diasAviso',      label: 'Dias para Aviso de Validade' },
   { key: 'observacoes',    label: 'Observações' },
   { key: 'inventariado',   label: 'Status do Inventário' },
+  { key: 'conferidoPor',   label: 'Conferido por' },
   { key: 'imagens',        label: 'Imagens' }
 ];
 var HEADERS = COLUMNS.map(function (c) { return c.label; });
@@ -76,7 +83,7 @@ function getSheet_() {
 // Acrescenta ao cabeçalho qualquer coluna nova que ainda não exista
 // (planilhas antigas não têm as colunas de imagens/observações/status etc.)
 var WANT_KEYS = ['codigoBarras', 'localizacao', 'diferenca', 'estoqueMinimo', 'validade',
-                 'diasAviso', 'observacoes', 'inventariado', 'imagens'];
+                 'diasAviso', 'observacoes', 'inventariado', 'conferidoPor', 'imagens'];
 function ensureColumns_(sheet) {
   var lastCol = sheet.getLastColumn();
   var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
@@ -138,6 +145,7 @@ function aliases_() {
     'status inventario': 'inventariado',
     'status de inventario': 'inventariado',
     'status do inventario': 'inventariado',
+    'conferido por': 'conferidoPor',
     'imagens': 'imagens'
   };
 }
@@ -186,12 +194,68 @@ function parseYmd_(s) {
 }
 
 /* ------------------------------------------------------------------ */
+/* Autenticação — Login com Google                                    */
+/* ------------------------------------------------------------------ */
+
+// Valida o "crachá" (ID token) com o Google e confirma que foi emitido para
+// ESTE app (aud) e que não expirou. Devolve { email, name } ou lança erro.
+// Usa cache para não chamar o Google a cada requisição (a doc do Google não
+// recomenda o tokeninfo para volume alto; o cache resolve isso aqui).
+function verifyToken_(token) {
+  token = String(token || '');
+  if (!token) throw new Error('unauthorized');
+
+  var cache = CacheService.getScriptCache();
+  var ckey = 'tok_' + token.slice(-48);
+  var hit = cache.get(ckey);
+  if (hit) return JSON.parse(hit);
+
+  var url = 'https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(token);
+  var resp = UrlFetchApp.fetch(url, { muteHttpExceptions: true });
+  if (resp.getResponseCode() !== 200) throw new Error('unauthorized');
+
+  var info = JSON.parse(resp.getContentText());
+  if (info.aud !== CLIENT_ID) throw new Error('unauthorized');           // emitido para outro app
+  if (Number(info.exp) * 1000 < Date.now()) throw new Error('unauthorized'); // expirado
+
+  var user = { email: String(info.email || '').toLowerCase(), name: String(info.name || '') };
+  if (!user.email) throw new Error('unauthorized');
+
+  cache.put(ckey, JSON.stringify(user), 300); // 5 minutos
+  return user;
+}
+
+// Confere se o e-mail está na aba "Autorizados" (coluna E-mail).
+function isAuthorized_(email) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(AUTORIZADOS_SHEET);
+  if (!sheet) return false;
+  var last = sheet.getLastRow();
+  if (last < 2) return false;
+  var vals = sheet.getRange(2, 1, last - 1, 1).getValues();
+  var alvo = norm_(email);
+  for (var i = 0; i < vals.length; i++) {
+    if (norm_(vals[i][0]) === alvo) return true;
+  }
+  return false;
+}
+
+// Guarda: valida o crachá E confirma a autorização. Devolve { email, name }
+// ou lança 'unauthorized' (crachá inválido) / 'forbidden' (fora da lista).
+function requireAuth_(token) {
+  var user = verifyToken_(token);
+  if (!isAuthorized_(user.email)) throw new Error('forbidden');
+  return user;
+}
+
+/* ------------------------------------------------------------------ */
 /* doGet — devolve todas as linhas                                    */
 /* ------------------------------------------------------------------ */
 
 function doGet(e) {
   try {
-    if (e && e.parameter && e.parameter.action === 'consumo') return jsonOut_(getConsumo_());
+    var p = (e && e.parameter) ? e.parameter : {};
+    requireAuth_(p.token);                       // bloqueia leitura sem crachá válido + autorizado
+    if (p.action === 'consumo') return jsonOut_(getConsumo_());
     var sheet = getSheet_();
     var values = sheet.getDataRange().getValues();
     if (values.length < 1) return jsonOut_({ ok: true, rows: [] });
@@ -283,6 +347,9 @@ function doPost(e) {
     var body = JSON.parse(e.postData.contents);
     var action = body.action || 'pushItem';
 
+    var auth = requireAuth_(body.token);   // bloqueia gravação sem crachá válido + autorizado
+    body._email = auth.email;              // e-mail do autor, para registrar autoria
+
     if (action === 'pushItem')      return jsonOut_(pushItem_(body));
     if (action === 'uploadImages')  return jsonOut_(uploadImages_(body));
     if (action === 'deleteImage')   return jsonOut_(deleteImage_(body));
@@ -358,6 +425,11 @@ function pushItem_(body) {
     if (!isNaN(fisico)) {
       sheet.getRange(rowIndex, col.diferenca + 1).setValue(fisico - sistema);
     }
+  }
+
+  // Autoria: registra quem conferiu (somente quando o item é confirmado como inventariado).
+  if (col.conferidoPor !== undefined && body.inventariado === true && body._email) {
+    sheet.getRange(rowIndex, col.conferidoPor + 1).setValue(body._email);
   }
 
   return { ok: true, codigo: String(body.codigo) };
@@ -455,7 +527,7 @@ function uploadImages_(body) {
 var CONSUMO_SHEET = 'Consumo';
 // Cabeçalhos no mesmo padrão da aba "Estoque" (Título descritivo em Português).
 // As colunas são posicionais, então renomear é seguro.
-var CONSUMO_HEADERS = ['ID', 'Data da Saída', 'Código Interno', 'Descrição', 'Quantidade', 'Solicitante', 'Observações'];
+var CONSUMO_HEADERS = ['ID', 'Data da Saída', 'Código Interno', 'Descrição', 'Quantidade', 'Solicitante', 'Observações', 'Registrado por'];
 
 // Cria a aba "Consumo" (com formatos) se não existir e garante os cabeçalhos padronizados
 function getConsumoSheet_() {
@@ -482,7 +554,8 @@ function addConsumo_(body) {
     var d = e.dataHora ? new Date(e.dataHora) : new Date();
     if (isNaN(d)) d = new Date();
     return [String(e.id || ''), d, String(e.codigo || ''), String(e.descricao || ''),
-            Number(e.quantidade) || 0, String(e.solicitante || ''), String(e.observacao || '')];
+            Number(e.quantidade) || 0, String(e.solicitante || ''), String(e.observacao || ''),
+            String(body._email || '')];
   });
   var start = sheet.getLastRow() + 1;
   // formata ANTES de gravar para preservar zeros à esquerda e a data
