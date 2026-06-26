@@ -1,7 +1,12 @@
 # Login com Google — Tasks
 
 **Design**: `.specs/features/login-google/design.md`
-**Status**: In Progress — ✅ Fase 0 (T1, T2) e ✅ Fase 1 backend (T3–T7) concluídas. Próximo: Fase 2 (frontend).
+**Status**: In Progress — ✅ Fase 0, ✅ Fase 1 (backend T3–T7), ✅ Fase 2 (frontend T8–T12), ✅ T13 (v21). Falta: **publicar** (implantar backend + push frontend) e **T14** (verificação fim a fim).
+
+**SPEC_DEVIATION (T13):** a lib do Google NÃO foi adicionada ao `SHELL` do Service Worker.
+Motivo: `cache.addAll()` falharia com o recurso do `accounts.google.com`, quebrando a
+instalação do SW; e o login exige internet de qualquer forma. Offline pós-login segue
+funcionando pela sessão no IndexedDB.
 
 ---
 

@@ -35,5 +35,9 @@ um problema aparecer, ou uma ideia surgir, anote aqui (com data). É o que evita
   "Almoxarifado UDESC", CLIENT_ID em `tasks.md`) e T2 (aba "Autorizados" na planilha).
   ✅ Fase 1 backend (T3–T7): `apps-script.gs` agora valida o crachá Google (`verifyToken_`),
   confere a lista (`isAuthorized_`), bloqueia `doGet`/`doPost` (`requireAuth_`) e registra
-  autoria ("Conferido por" / "Registrado por"). **Próximo:** Fase 2 frontend (T8–T12).
-  ⚠️ NÃO reimplantar o Apps Script ainda — esperar o frontend, senão o app ao vivo quebra.
+  autoria ("Conferido por" / "Registrado por").
+- **2026-06-26:** ✅ Fase 2 frontend (T8–T12) + T13: `index.html` ganhou tela "Entrar com
+  o Google", sessão lembrada (IndexedDB), gating no carregamento, token anexado às
+  requisições e botão "Sair" (no ⚙️). `sw.js` e `APP_VERSION` subiram para **v21**.
+  **Próximo:** publicar (implantar backend + push frontend) e T14 (verificação fim a fim).
+  ⚠️ Implantar backend e publicar frontend JUNTOS (senão o app ao vivo quebra).
