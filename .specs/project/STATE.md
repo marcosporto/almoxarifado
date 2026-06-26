@@ -45,3 +45,5 @@ um problema aparecer, ou uma ideia surgir, anote aqui (com data). É o que evita
   backend agora é fixa no código (`DEFAULT_SCRIPT_URL`) — ninguém mais precisa configurar
   o ⚙️; e os ícones de QR dos botões de leitura (topo + cards) viraram código de barras
   (mantido só o "Ler QR" da barra inferior). Resolve a "Deferred Idea" da URL fixa.
+- **2026-06-26:** (v23) ícones de código de barras **revertidos** para QR a pedido do
+  usuário (não ficaram bons). A URL fixa (v22) foi mantida.
