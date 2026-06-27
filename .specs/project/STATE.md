@@ -61,6 +61,12 @@ um problema aparecer, ou uma ideia surgir, anote aqui (com data). É o que evita
   (app do celular não muda). ✅ **CONCLUÍDA e testada pelo usuário em 2026-06-26** —
   funcionou, enriquecimento preservado. Coluna "Situação" / valor "Sem estoque" confirmados.
 - **2026-06-26:** quick task (v26) — ao adicionar foto, abre tela "Revisar fotos" com botão
-  🔄 Girar (gira 90° antes de enviar). `pickPhotos`→revisão→`enviarFotos`/`sendPhotos`;
+  🔄 Girar (gira 90° antes de enviar).
+- **2026-06-26:** fix (v27) — caractere acidental (`alerx'tDialog`) quebrava o script e
+  travava o app. **Lição:** rodar checagem de sintaxe (node --check no `<script>`) antes
+  de publicar `index.html`.
+- **2026-06-26:** quick task UX (v28) — barra inferior fica visível por cima dos modais de
+  seção, com botão ativo destacado (cor + barrinha); imagem/scanner/diálogo seguem imersivos;
+  trava de scroll do fundo (`body.modal-open`); ícone de câmera virou SVG (padrão visual). `pickPhotos`→revisão→`enviarFotos`/`sendPhotos`;
   `rotate90` via canvas. Escolhido girar no momento de adicionar (confiável; sem problema
   de CORS do Drive). Fotos antigas tortas: re-tirar com o novo fluxo.
