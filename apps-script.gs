@@ -22,14 +22,18 @@ var IMAGE_FOLDER_NAME = 'Almoxarifado UDESC - Imagens';
 // na chave GEMINI_API_KEY (assim ela nunca aparece no index.html, que é público).
 var GEMINI_MODEL = 'gemini-2.5-flash-image'; // modelo de imagem (image-out), nível gratuito
 var PROMPT_TRATAMENTO = [
-  'Edit this product photo into a clean e-commerce / inventory catalog image.',
-  'Remove the background and replace it with a uniform, pure-white background that fills the',
-  'entire square frame edge to edge. Do NOT add any border, frame, vignette or colored margin.',
-  'Scale the main item so it is large and prominent, filling about 90% of the square frame,',
-  'centered, leaving only a small uniform white margin around it, in a 1:1 composition.',
+  'Re-crop and re-frame this product photo as a tight, zoomed-in close-up for an',
+  'e-commerce / inventory catalog. ZOOM IN strongly so the product becomes large and',
+  'DOMINANT, nearly filling the square frame and almost touching all four edges, leaving',
+  'only a thin uniform white margin (the product must occupy about 90-95% of the frame).',
+  'It is REQUIRED to enlarge and recompose the product — do not keep it small or centered',
+  'with wide empty space.',
+  'Remove the background and replace it with a pure-white background that fills the entire',
+  'square frame edge to edge, with no border, frame, vignette or colored margin.',
   'Improve lighting, color balance and maximize sharpness so every detail is clearly visible.',
-  'Keep the item perfectly faithful: same shape, same colors, and keep any text or labels',
-  'readable and unchanged. Do not add, remove or invent any objects.'
+  'Keep the PRODUCT ITSELF faithful: do not change its shape, colors, proportions or any',
+  'text/labels — only change its size and position within the frame. Do not add, remove or',
+  'invent any objects.'
 ].join(' ');
 
 // ====== Login com Google (autenticação) ======
