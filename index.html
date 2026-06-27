@@ -98,7 +98,7 @@
   .qty-input{ flex:1; min-width:0; padding:12px; border:1.5px solid var(--cinza-300); border-radius:10px; font-size:18px; text-align:center; outline:none; font-family:inherit; }
   .qty-input:focus{ border-color:var(--verde); }
   .btn{ border:none; border-radius:10px; font-size:14px; font-weight:bold; cursor:pointer; font-family:inherit; }
-  .btn-photo{ flex:0 0 auto; width:52px; background:var(--cinza-50); border:1.5px solid var(--cinza-300); font-size:20px; }
+  .btn-photo{ flex:0 0 auto; width:52px; background:var(--cinza-50); border:1.5px solid var(--cinza-300); font-size:20px; display:flex; align-items:center; justify-content:center; }
   .btn-conf{ flex:0 0 auto; padding:0 18px; background:var(--verde); color:#fff; }
   .btn-conf.done{ background:var(--verde-escuro); }
   .card-msg{ font-size:12px; color:var(--cinza-500); text-align:center; min-height:15px; margin-top:6px; }
@@ -124,16 +124,20 @@
   #modal-img img{ max-width:100%; max-height:90vh; border-radius:8px; }
 
   /* ====== Bottom nav ====== */
-  #bottom{ position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid var(--cinza-100); display:flex; z-index:30; box-shadow:0 -2px 8px rgba(0,0,0,.06); }
-  #bottom button{ flex:1; background:none; border:none; padding:12px 4px 14px; font-size:11px; color:var(--cinza-500); font-weight:bold; cursor:pointer; font-family:inherit; }
+  #bottom{ position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid var(--cinza-100); display:flex; z-index:130; box-shadow:0 -2px 8px rgba(0,0,0,.06); }
+  #bottom button{ flex:1; background:none; border:none; padding:12px 4px 14px; font-size:11px; color:var(--cinza-500); font-weight:bold; cursor:pointer; font-family:inherit; position:relative; }
   #bottom button .i{ display:block; font-size:21px; margin-bottom:2px; }
   #bottom button .i .ico{ width:23px; height:23px; }
   #bottom button.scan{ color:var(--verde); }
+  /* Botão da seção aberta no momento: cor + barrinha no topo (mantém a referência de onde você está) */
+  #bottom button.nav-active{ color:var(--verde); }
+  #bottom button.nav-active::before{ content:''; position:absolute; top:0; left:50%; transform:translateX(-50%); width:34px; height:3px; border-radius:0 0 4px 4px; background:var(--verde); }
 
   /* ====== Modais ====== */
   .modal{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:100; align-items:flex-end; justify-content:center; }
   .modal.open{ display:flex; }
-  .sheet{ background:#fff; border-radius:18px 18px 0 0; width:100%; max-width:560px; max-height:92vh; overflow-y:auto; padding:20px 18px 28px; }
+  .sheet{ background:#fff; border-radius:18px 18px 0 0; width:100%; max-width:560px; max-height:92vh; overflow-y:auto; padding:20px 18px 80px; }
+  body.modal-open{ overflow:hidden; }   /* trava o scroll do fundo enquanto um modal está aberto */
   .sheet h2{ font-size:18px; color:var(--verde-escuro); margin-bottom:4px; }
   .sheet p.hint{ font-size:13px; color:var(--cinza-500); margin-bottom:14px; line-height:1.5; }
   .sheet input[type=url], .sheet input[type=text], .sheet input[type=number], .sheet input[type=date], .sheet input[type=datetime-local]{ width:100%; padding:12px; border:1.5px solid var(--cinza-300); border-radius:10px; font-size:15px; font-family:inherit; outline:none; margin-bottom:12px; }
@@ -234,8 +238,8 @@
 <div id="bottom">
   <button onclick="setFilter('todos')"><span class="i"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 2H4c-1 0-2 .9-2 2v3.01c0 .72.43 1.34 1 1.69V20c0 1.1 1.1 2 2 2h14c.9 0 2-.9 2-2V8.7c.57-.35 1-.97 1-1.69V4c0-1.1-1-2-2-2zm-5 12H9v-2h6v2zm5-7H4V4l16-.02V7z"/></svg></span>Itens</button>
   <button class="scan" onclick="startScan()"><span class="i"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6.5v3h-3v-3h3M11 5H5v6h6V5zm-1.5 9.5v3h-3v-3h3M11 13H5v6h6v-6zm6.5-6.5v3h-3v-3h3M19 5h-6v6h6V5zm-6 8h1.5v1.5H13V13zm1.5 1.5H16V16h-1.5v-1.5zM16 13h1.5v1.5H16V13zm-3 3h1.5v1.5H13V16zm1.5 1.5H16V19h-1.5v-1.5zM16 16h1.5v1.5H16V16zm1.5-1.5H19V16h-1.5v-1.5zm0 3H19V19h-1.5v-1.5zM22 7h-2V4h-3V2h5v5zm0 15v-5h-2v3h-3v2h5zM2 22h5v-2H4v-3H2v5zM2 2v5h2V4h3V2H2z"/></svg></span>Ler QR</button>
-  <button onclick="openModal('pick')"><span class="i"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></span>Separação</button>
-  <button onclick="openModal('consumo')"><span class="i"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 3.5L18 2l-1.5 1.5L15 2l-1.5 1.5L12 2l-1.5 1.5L9 2 7.5 3.5 6 2 4.5 3.5 3 2v20l1.5-1.5L6 22l1.5-1.5L9 22l1.5-1.5L12 22l1.5-1.5L15 22l1.5-1.5L18 22l1.5-1.5L21 22V2l-1.5 1.5zM19 19.09H5V4.91h14v14.18zM6 15h12v2H6zm0-4h12v2H6zm0-4h12v2H6z"/></svg></span>Consumo</button>
+  <button id="nav-pick" onclick="openModal('pick')"><span class="i"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></span>Separação</button>
+  <button id="nav-consumo" onclick="openModal('consumo')"><span class="i"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M19.5 3.5L18 2l-1.5 1.5L15 2l-1.5 1.5L12 2l-1.5 1.5L9 2 7.5 3.5 6 2 4.5 3.5 3 2v20l1.5-1.5L6 22l1.5-1.5L9 22l1.5-1.5L12 22l1.5-1.5L15 22l1.5-1.5L18 22l1.5-1.5L21 22V2l-1.5 1.5zM19 19.09H5V4.91h14v14.18zM6 15h12v2H6zm0-4h12v2H6zm0-4h12v2H6z"/></svg></span>Consumo</button>
 </div>
 
 <!-- Modal: Config -->
@@ -407,7 +411,7 @@
 /* =========================================================================
    Almoxarifado UDESC — app offline-first
    ========================================================================= */
-const APP_VERSION = 'v27';
+const APP_VERSION = 'v28';
 // Login com Google: mesmo Client ID do backend (não é secreto, fica visível de propósito).
 const CLIENT_ID = '768100742493-h1v8i5u47aip75rbcv52uvuej4o7v2mr.apps.googleusercontent.com';
 
@@ -463,11 +467,15 @@ function openModal(id){
   if(!el || el.classList.contains('open')) return;
   el.classList.add('open');
   modalStack.push(id);
-  el.style.zIndex = 100 + modalStack.length;   // o último aberto fica sempre na frente
+  // imagem/scanner/diálogo ficam ACIMA da barra inferior (imersivos); os demais deixam a barra à mostra
+  const fullscreen = (id==='img'||id==='scan'||id==='confirm');
+  el.style.zIndex = (fullscreen?200:100) + modalStack.length;   // o último aberto fica sempre na frente
+  document.body.classList.add('modal-open');                    // trava o scroll do fundo
   history.pushState({ modal:id }, '');
   if(id==='pick') renderPick();
   if(id==='consumo') refreshConsumo();
   if(id==='config') renderCfgUser();
+  updateNavActive();
 }
 // Fecha pelo histórico quando este é o modal do topo (mantém o Voltar coerente);
 // senão, fecha direto.
@@ -480,6 +488,8 @@ function forceClose(id){
   if(el){ el.classList.remove('open'); el.style.zIndex=''; }
   const i=modalStack.lastIndexOf(id);
   if(i>=0) modalStack.splice(i,1);
+  if(!modalStack.length) document.body.classList.remove('modal-open');   // libera o scroll do fundo
+  updateNavActive();
   if(id==='scan') stopScan();
   if(id==='confirm' && _confirmResolve){
     const r=_confirmResolve; _confirmResolve=null;
@@ -491,6 +501,16 @@ function forceClose(id){
   }
   // Aviso pendente: disparado depois que o modal de origem fecha (evita conflito de histórico)
   else if(_pendingAlert){ const a=_pendingAlert; _pendingAlert=null; alertDialog(a.msg, a.opts); }
+}
+
+// Destaca na barra inferior o botão da seção aberta (Separação/Consumo) — referência de onde você está.
+function updateNavActive(){
+  const map={ pick:'nav-pick', consumo:'nav-consumo' };
+  let activeId='';
+  modalStack.forEach(id=>{ if(map[id]) activeId=map[id]; });
+  ['nav-pick','nav-consumo'].forEach(id=>{
+    const b=document.getElementById(id); if(b) b.classList.toggle('nav-active', id===activeId);
+  });
 }
 
 /* Confirmação personalizada (Promise<boolean>) — substitui o confirm() nativo.
@@ -791,7 +811,7 @@ function card(it){
     </details>
     <div class="actions">
       <input class="qty-input" id="qty-${it.codigo}" type="number" inputmode="numeric" min="0" placeholder="Conferido" value="${fisico==null?'':fisico}">
-      <label class="btn btn-photo" title="Adicionar fotos">📷
+      <label class="btn btn-photo" title="Adicionar fotos"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg>
         <input type="file" accept="image/*" capture="environment" multiple style="display:none" onchange="pickPhotos('${esc(it.codigo)}', this.files)">
       </label>
       <button class="btn btn-conf${it.inventariado?' done':''}" onclick="confirmInv('${esc(it.codigo)}')">${it.inventariado?'✓ Feito':'Confirmar'}</button>
