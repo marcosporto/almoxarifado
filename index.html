@@ -414,7 +414,7 @@
 /* =========================================================================
    Almoxarifado UDESC — app offline-first
    ========================================================================= */
-const APP_VERSION = 'v32';
+const APP_VERSION = 'v33';
 // Login com Google: mesmo Client ID do backend (não é secreto, fica visível de propósito).
 const CLIENT_ID = '768100742493-h1v8i5u47aip75rbcv52uvuej4o7v2mr.apps.googleusercontent.com';
 
@@ -977,15 +977,20 @@ async function sendPhotos(codigo, dataUrls){
   msg(codigo, navigator.onLine?'Foto(s) na fila. Sincronizando…':'Foto(s) salvas (offline).');
   if(navigator.onLine) syncNow();
 }
-function compress(file, maxDim=1000, quality=0.6){
+// Gera uma imagem QUADRADA (1:1, ~size px): encaixa a foto inteira ("contain") e
+// preenche a sobra com branco — fica padrão catálogo. O backend depois trata com IA.
+function compress(file, size=1024, quality=0.6){
   return new Promise((res)=>{
     const img=new Image(); const url=URL.createObjectURL(file);
     img.onload=()=>{
-      let {width:w,height:h}=img;
-      if(w>h && w>maxDim){ h=Math.round(h*maxDim/w); w=maxDim; }
-      else if(h>maxDim){ w=Math.round(w*maxDim/h); h=maxDim; }
-      const c=document.createElement('canvas'); c.width=w; c.height=h;
-      c.getContext('2d').drawImage(img,0,0,w,h);
+      const {width:iw,height:ih}=img;
+      // escala para CABER no quadrado (não corta nada), sem ampliar imagens pequenas
+      const scale=Math.min(size/iw, size/ih, 1);
+      const w=Math.round(iw*scale), h=Math.round(ih*scale);
+      const c=document.createElement('canvas'); c.width=size; c.height=size;
+      const ctx=c.getContext('2d');
+      ctx.fillStyle='#ffffff'; ctx.fillRect(0,0,size,size);     // fundo branco
+      ctx.drawImage(img,(size-w)/2,(size-h)/2,w,h);             // centraliza a foto
       URL.revokeObjectURL(url);
       res(c.toDataURL('image/jpeg',quality));
     };
