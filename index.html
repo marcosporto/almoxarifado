@@ -411,7 +411,7 @@
 /* =========================================================================
    Almoxarifado UDESC — app offline-first
    ========================================================================= */
-const APP_VERSION = 'v29';
+const APP_VERSION = 'v30';
 // Login com Google: mesmo Client ID do backend (não é secreto, fica visível de propósito).
 const CLIENT_ID = '768100742493-h1v8i5u47aip75rbcv52uvuej4o7v2mr.apps.googleusercontent.com';
 
@@ -526,7 +526,8 @@ function navTo(target){
       if(modalStack[modalStack.length-1]===current) closeModal(current);
       else closeNavSilent(current);
     }
-    setFilter('todos'); updateNavActive(); return;
+    if(filter!=='todos') setFilter('todos');     // só re-renderiza a lista se o filtro mudar (evita travada)
+    updateNavActive(); return;
   }
   const reuse = (current!=null);                 // trocando de aba?
   if(current) closeNavSilent(current);
