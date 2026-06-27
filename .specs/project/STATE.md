@@ -93,6 +93,15 @@ um problema aparecer, ou uma ideia surgir, anote aqui (com data). É o que evita
   - **Pendente de decisão (não feito):** mover o `token` da URL (GET) para o corpo exigiria
     redeploy do backend para ganho marginal (token expira em 1h, só aparece nos logs do
     próprio Google) — deixado como está de propósito.
+- **2026-06-27:** feature **Tratamento de foto por IA (Gemini)** — `features/tratamento-foto-ia/`.
+  ✅ T1 frontend (v33): `compress()` agora gera a foto **quadrada** (1:1, ~1024px, "contain"
+  com fundo branco) — `index.html` + `sw.js` em **v33**, push feito. ✅ T2 backend
+  (`apps-script.gs`): helper `tratarImagemGemini_` (modelo `gemini-2.5-flash-image`) trata a
+  foto (fundo branco/nítida/1:1 catálogo) e `uploadImages_` salva a tratada, com **fallback
+  para a original** em qualquer falha (chave ausente, offline, erro da API). Chave em
+  `ScriptProperties.GEMINI_API_KEY`. **Próximo (T3, com o usuário):** colar a chave nas
+  Propriedades do script, autorizar UrlFetchApp/Drive, **republicar o backend** (Implantar →
+  Nova versão) e testar fim a fim (foto → sync → no Drive fica só a tratada).
 - **2026-06-27:** logo (v32) — o usuário forneceu o **arquivo oficial da marca**
   (`vertical_negativo.svg`, versão branca). Substituiu a recriação da v31: `logo.svg` =
   logo oficial (transparente) usado no cabeçalho e no login; `icon.svg` = mesmo logo
