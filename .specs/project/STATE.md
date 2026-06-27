@@ -67,6 +67,10 @@ um problema aparecer, ou uma ideia surgir, anote aqui (com data). É o que evita
   de publicar `index.html`.
 - **2026-06-26:** quick task UX (v28) — barra inferior fica visível por cima dos modais de
   seção, com botão ativo destacado (cor + barrinha); imagem/scanner/diálogo seguem imersivos;
-  trava de scroll do fundo (`body.modal-open`); ícone de câmera virou SVG (padrão visual). `pickPhotos`→revisão→`enviarFotos`/`sendPhotos`;
+  trava de scroll do fundo (`body.modal-open`); ícone de câmera virou SVG (padrão visual).
+- **2026-06-26:** quick task UX (v29) — barra inferior virou **abas de verdade** (`navTo`):
+  só uma seção aberta por vez, tocar em outra TROCA (não empilha mais), "Itens" volta à
+  lista, e os 4 botões têm destaque do ativo (incluindo "Ler QR", que agora mantém a barra
+  visível). `openModalEx(id,pushHistory)` reaproveita o slot de histórico ao trocar de aba. `pickPhotos`→revisão→`enviarFotos`/`sendPhotos`;
   `rotate90` via canvas. Escolhido girar no momento de adicionar (confiável; sem problema
   de CORS do Drive). Fotos antigas tortas: re-tirar com o novo fluxo.
