@@ -566,6 +566,16 @@ function tratarImagemGemini_(base64, mime) {
 function uploadImages_(body) {
   if (!body.images || !body.images.length) return { ok: false, error: 'Nenhuma imagem recebida.' };
 
+  // Idempotência: se este mesmo envio (mesma "etiqueta") já foi processado, devolve as
+  // URLs guardadas SEM tratar de novo — evita foto duplicada e gasto de crédito à toa
+  // quando o app reenvia por ter perdido a resposta.
+  var cache = CacheService.getScriptCache();
+  var cacheKey = body.opKey ? ('img_' + body.opKey) : null;
+  if (cacheKey) {
+    var hit = cache.get(cacheKey);
+    if (hit) return { ok: true, codigo: String(body.codigo), urls: JSON.parse(hit), cached: true };
+  }
+
   var folder = getImageFolder_();
   var urls = [];
 
@@ -603,6 +613,9 @@ function uploadImages_(body) {
       cell.setValue(existing.concat(urls).join(', '));
     }
   }
+
+  // Lembra o resultado desta etiqueta por 6h (cobre qualquer retentativa do app).
+  if (cacheKey) cache.put(cacheKey, JSON.stringify(urls), 21600);
 
   return { ok: true, codigo: String(body.codigo), urls: urls };
 }

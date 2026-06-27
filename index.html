@@ -414,7 +414,7 @@
 /* =========================================================================
    Almoxarifado UDESC — app offline-first
    ========================================================================= */
-const APP_VERSION = 'v33';
+const APP_VERSION = 'v34';
 // Login com Google: mesmo Client ID do backend (não é secreto, fica visível de propósito).
 const CLIENT_ID = '768100742493-h1v8i5u47aip75rbcv52uvuej4o7v2mr.apps.googleusercontent.com';
 
@@ -971,7 +971,10 @@ async function sendPhotos(codigo, dataUrls){
     previews.push(d);
     images.push({ name:codigo+'_'+Date.now(), mime:'image/jpeg', data:d.split(',')[1] });
   });
-  const id=await enqueue({ type:'images', codigo, images, previews });
+  // "etiqueta única" (idempotência): identifica ESTE envio. Se a resposta se perder e o
+  // app reenviar, o servidor reconhece a etiqueta e não trata a mesma foto de novo.
+  const opKey = codigo+'_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+  const id=await enqueue({ type:'images', codigo, images, previews, opKey });
   it.pendingImages=(it.pendingImages||[]).concat(previews.map(p=>({opId:id,src:p})));
   await saveSnapshot(); render();
   msg(codigo, navigator.onLine?'Foto(s) na fila. Sincronizando…':'Foto(s) salvas (offline).');
@@ -1038,7 +1041,7 @@ async function syncNow(){
       }else if(op.type==='deleteConsumo'){
         payload={ action:'deleteConsumo', id:op.cid };
       }else{
-        payload={ action:'uploadImages', codigo:op.codigo, images:op.images };
+        payload={ action:'uploadImages', codigo:op.codigo, images:op.images, opKey:op.opKey };
       }
       payload.token = authToken();
       const res=await fetch(scriptUrl,{ method:'POST', body:JSON.stringify(payload) });
