@@ -102,6 +102,19 @@ um problema aparecer, ou uma ideia surgir, anote aqui (com data). É o que evita
   `ScriptProperties.GEMINI_API_KEY`. **Próximo (T3, com o usuário):** colar a chave nas
   Propriedades do script, autorizar UrlFetchApp/Drive, **republicar o backend** (Implantar →
   Nova versão) e testar fim a fim (foto → sync → no Drive fica só a tratada).
+- **2026-06-27:** ✅ **Feature Tratamento de foto por IA CONCLUÍDA e testada** — usuário ativou
+  faturamento (pré-pago, ~US$0,04/imagem; a geração de imagem do Gemini **não tem free tier** —
+  retornava HTTP 429 `limit:0`), republicou o backend e testou: foto sai quadrada, é tratada
+  (fundo branco/centralizada/nítida) e substitui a original no Drive; link gravado na planilha.
+  **Lição/ferramenta:** função temporária `diagnosticarGemini` no `.gs` (testa a API e mostra
+  HTTP code + erro real no Registro de execução) — ótima pra debugar APIs externas no Apps Script.
+  **Lição (latência):** o tratamento demora ~10-17s por foto; em rede móvel instável a resposta
+  pode se perder e o app reenviar → por isso entrou **idempotência (v34)**: cada envio tem uma
+  "etiqueta única" (`opKey`) e o backend guarda o resultado no `CacheService` por 6h, devolvendo
+  as mesmas URLs sem retratar (evita foto duplicada + gasto de crédito). **Pendente leve:** o
+  usuário vai apagar 2 colunas duplicadas/vazias na aba Estoque (O e P: "Dias para Aviso de
+  Validade" e "Status do Inventário" repetidas) — `buildColMap_` usa a 1ª ocorrência, então as
+  duplicatas são ignoradas e apagá-las é seguro.
 - **2026-06-27:** logo (v32) — o usuário forneceu o **arquivo oficial da marca**
   (`vertical_negativo.svg`, versão branca). Substituiu a recriação da v31: `logo.svg` =
   logo oficial (transparente) usado no cabeçalho e no login; `icon.svg` = mesmo logo
