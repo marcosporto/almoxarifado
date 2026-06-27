@@ -2,8 +2,11 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#149954">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Almoxarifado">
 <link rel="manifest" href="./manifest.json">
 <link rel="apple-touch-icon" href="./icon.svg">
 <title>Almoxarifado UDESC</title>
@@ -196,7 +199,7 @@
     <button class="icon-btn" onclick="openModal('config')" title="Configurar">⚙️</button>
   </div>
   <div class="search-wrap">
-    <input type="search" id="search-box" placeholder="Buscar: descrição, código ou código de barras…" oninput="render()">
+    <input type="search" id="search-box" placeholder="Buscar: descrição, código ou código de barras…" oninput="onSearchInput()">
     <button class="search-scan" onclick="scanSearch()" title="Ler código para buscar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6.5v3h-3v-3h3M11 5H5v6h6V5zm-1.5 9.5v3h-3v-3h3M11 13H5v6h6v-6zm6.5-6.5v3h-3v-3h3M19 5h-6v6h6V5zm-6 8h1.5v1.5H13V13zm1.5 1.5H16V16h-1.5v-1.5zM16 13h1.5v1.5H16V13zm-3 3h1.5v1.5H13V16zm1.5 1.5H16V19h-1.5v-1.5zM16 16h1.5v1.5H16V16zm1.5-1.5H19V16h-1.5v-1.5zm0 3H19V19h-1.5v-1.5zM22 7h-2V4h-3V2h5v5zm0 15v-5h-2v3h-3v2h5zM2 22h5v-2H4v-3H2v5zM2 2v5h2V4h3V2H2z"/></svg></button>
   </div>
 </header>
@@ -405,13 +408,13 @@
 </div>
 
 <script src="https://accounts.google.com/gsi/client" async></script>
-<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js" integrity="sha384-c9d8RFSL+u3exBOJ4Yp3HUJXS4znl9f+z66d1y54ig+ea249SpqR+w1wyvXz/lk+" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous"></script>
 <script>
 /* =========================================================================
    Almoxarifado UDESC — app offline-first
    ========================================================================= */
-const APP_VERSION = 'v30';
+const APP_VERSION = 'v31';
 // Login com Google: mesmo Client ID do backend (não é secreto, fica visível de propósito).
 const CLIENT_ID = '768100742493-h1v8i5u47aip75rbcv52uvuej4o7v2mr.apps.googleusercontent.com';
 
@@ -767,6 +770,11 @@ function nearExpiry(it){
 }
 function norm(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim(); }
 
+// Busca: aguarda uma pausa na digitação antes de re-renderizar (evita reconstruir
+// a lista a cada tecla — mais fluido em inventários grandes).
+let _searchT;
+function onSearchInput(){ clearTimeout(_searchT); _searchT=setTimeout(render, 120); }
+
 function render(){
   const q = norm(document.getElementById('search-box').value);
   let list = items.filter(it=>{
@@ -801,13 +809,13 @@ function card(it){
   if(belowMin(it)) badges.push('<span class="badge min">⚠ Abaixo do mínimo ('+it.estoqueMinimo+')</span>');
   if(nearExpiry(it)) badges.push('<span class="badge val">⏳ Vence '+fmtDate(it.validade)+'</span>');
 
-  const serverThumbs=(it.imagens||[]).map(u=>`<span class="thumb-wrap"><img class="thumb" loading="lazy" src="${driveThumb(u)}" data-fb="${driveLh3(u)}" onerror="imgFallback(this)" onclick="openImg('${esc(u)}')"><button class="thumb-del" onclick="delImage('${esc(it.codigo)}','${esc(u)}')">✕</button></span>`).join('');
-  const pendThumbs=(it.pendingImages||[]).map(p=>`<span class="thumb-wrap"><img class="thumb pending" src="${p.src}"><button class="thumb-del" onclick="delPendingImage('${esc(it.codigo)}',${p.opId})">✕</button></span>`).join('');
+  const serverThumbs=(it.imagens||[]).map(u=>`<span class="thumb-wrap"><img class="thumb" loading="lazy" src="${driveThumb(u)}" data-fb="${driveLh3(u)}" onerror="imgFallback(this)" data-act="openImg" data-url="${esc(u)}"><button class="thumb-del" data-act="delImage" data-codigo="${esc(it.codigo)}" data-url="${esc(u)}">✕</button></span>`).join('');
+  const pendThumbs=(it.pendingImages||[]).map(p=>`<span class="thumb-wrap"><img class="thumb pending" src="${p.src}"><button class="thumb-del" data-act="delPendingImage" data-codigo="${esc(it.codigo)}" data-opid="${p.opId}">✕</button></span>`).join('');
 
   d.innerHTML=`
     <div class="card-head">
       <div class="codes">Cód.: <b>${esc(it.codigo)}</b></div>
-      ${it.localizacao?`<span class="loc-tag" onclick="setLoc('${esc(it.localizacao)}')">📍 ${esc(it.localizacao)}</span>`:''}
+      ${it.localizacao?`<span class="loc-tag" data-act="setLoc" data-loc="${esc(it.localizacao)}">📍 ${esc(it.localizacao)}</span>`:''}
     </div>
     <div class="desc">${esc(it.descricao)}</div>
     ${it.unidade?`<div class="unit">${esc(fmtUnidade(it.unidade))}</div>`:''}
@@ -820,34 +828,34 @@ function card(it){
     ${(serverThumbs||pendThumbs)?`<div class="thumbs">${serverThumbs}${pendThumbs}</div>`:''}
     <details class="more">
       <summary>Mais campos</summary>
-      <div class="field"><label>Observações</label><input class="obs-input" id="obs-${it.codigo}" placeholder="Observações…" value="${esc(it.observacoes)}"></div>
+      <div class="field"><label>Observações</label><input class="obs-input" id="obs-${esc(it.codigo)}" placeholder="Observações…" value="${esc(it.observacoes)}"></div>
       <div class="field"><label>Código de barras</label>
         <div class="field-scan">
-          <input id="barras-${it.codigo}" value="${esc(it.codigoBarras)}" inputmode="numeric">
-          <button class="scan-btn" onclick="scanInto('barras-${it.codigo}','barras')" title="Ler código de barras">${ICON_QR}</button>
+          <input id="barras-${esc(it.codigo)}" value="${esc(it.codigoBarras)}" inputmode="numeric">
+          <button class="scan-btn" data-act="scanInto" data-input="barras-${esc(it.codigo)}" data-kind="barras" title="Ler código de barras">${ICON_QR}</button>
         </div>
       </div>
       <div class="field"><label>Localização</label>
         <div class="field-scan">
-          <input id="locx-${it.codigo}" value="${esc(it.localizacao)}" placeholder="Ex.: Prateleira 1">
-          <button class="scan-btn" onclick="scanInto('locx-${it.codigo}','locField')" title="Ler QR Code">${ICON_QR}</button>
+          <input id="locx-${esc(it.codigo)}" value="${esc(it.localizacao)}" placeholder="Ex.: Prateleira 1">
+          <button class="scan-btn" data-act="scanInto" data-input="locx-${esc(it.codigo)}" data-kind="locField" title="Ler QR Code">${ICON_QR}</button>
         </div>
       </div>
       <div class="row2">
-        <div class="field"><label>Estoque mínimo</label><input id="min-${it.codigo}" type="number" inputmode="numeric" value="${it.estoqueMinimo==null?'':it.estoqueMinimo}"></div>
-        <div class="field"><label>Dias aviso validade</label><input id="aviso-${it.codigo}" type="number" inputmode="numeric" value="${it.diasAviso==null?'':it.diasAviso}"></div>
+        <div class="field"><label>Estoque mínimo</label><input id="min-${esc(it.codigo)}" type="number" inputmode="numeric" value="${it.estoqueMinimo==null?'':it.estoqueMinimo}"></div>
+        <div class="field"><label>Dias aviso validade</label><input id="aviso-${esc(it.codigo)}" type="number" inputmode="numeric" value="${it.diasAviso==null?'':it.diasAviso}"></div>
       </div>
-      <div class="field"><label>Data de validade</label><input id="val-${it.codigo}" type="date" value="${esc(it.validade)}"></div>
-      <button class="btn btn-fields" onclick="salvarCampos('${esc(it.codigo)}')">Salvar campos</button>
+      <div class="field"><label>Data de validade</label><input id="val-${esc(it.codigo)}" type="date" value="${esc(it.validade)}"></div>
+      <button class="btn btn-fields" data-act="salvarCampos" data-codigo="${esc(it.codigo)}">Salvar campos</button>
     </details>
     <div class="actions">
-      <input class="qty-input" id="qty-${it.codigo}" type="number" inputmode="numeric" min="0" placeholder="Conferido" value="${fisico==null?'':fisico}">
+      <input class="qty-input" id="qty-${esc(it.codigo)}" type="number" inputmode="numeric" min="0" placeholder="Conferido" value="${fisico==null?'':fisico}">
       <label class="btn btn-photo" title="Adicionar fotos"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg>
-        <input type="file" accept="image/*" capture="environment" multiple style="display:none" onchange="pickPhotos('${esc(it.codigo)}', this.files)">
+        <input type="file" accept="image/*" capture="environment" multiple style="display:none" data-act="pickPhotos" data-codigo="${esc(it.codigo)}">
       </label>
-      <button class="btn btn-conf${it.inventariado?' done':''}" onclick="confirmInv('${esc(it.codigo)}')">${it.inventariado?'✓ Feito':'Confirmar'}</button>
+      <button class="btn btn-conf${it.inventariado?' done':''}" data-act="confirmInv" data-codigo="${esc(it.codigo)}">${it.inventariado?'✓ Feito':'Confirmar'}</button>
     </div>
-    <div class="card-msg" id="msg-${it.codigo}"></div>`;
+    <div class="card-msg" id="msg-${esc(it.codigo)}"></div>`;
   return d;
 }
 
@@ -1142,7 +1150,7 @@ function renderPickSearch(){
   items.filter(it=> norm(it.descricao).includes(q)||norm(it.codigo).includes(q)||norm(it.codigoBarras).includes(q))
     .slice(0,8).forEach(it=>{
       const d=document.createElement('div'); d.className='pick-item';
-      d.innerHTML=`<div class="pk-body"><span class="pk-loc">${esc(it.localizacao)||'s/ local'}</span><div class="pk-desc">${esc(it.descricao)}</div></div><button class="btn btn-green" style="padding:8px 12px" onclick="addToPick('${esc(it.codigo)}')">+</button>`;
+      d.innerHTML=`<div class="pk-body"><span class="pk-loc">${esc(it.localizacao)||'s/ local'}</span><div class="pk-desc">${esc(it.descricao)}</div></div><button class="btn btn-green" style="padding:8px 12px" data-act="addToPick" data-codigo="${esc(it.codigo)}">+</button>`;
       box.appendChild(d);
     });
 }
@@ -1276,7 +1284,7 @@ function renderConsumo(){
         <div class="pk-qty">Cód: ${esc(e.codigo)} · Qtd: ${esc(e.quantidade)} · ${esc(e.solicitante||'—')}${e.pending?' · <span class="badge-pend">pendente</span>':''}</div>
         <div class="pk-qty">${esc(fmtDateTime(e.dataHora))}${e.observacao?(' · '+esc(e.observacao)):''}</div>
       </div>
-      <button class="pk-del" onclick="delConsumo('${esc(e.id)}')" title="Remover lançamento">${ICON_TRASH}</button>`;
+      <button class="pk-del" data-act="delConsumo" data-id="${esc(e.id)}" title="Remover lançamento">${ICON_TRASH}</button>`;
     el.appendChild(d);
   });
 }
@@ -1336,7 +1344,7 @@ function renderSaidaBusca(){
   items.filter(it=> norm(it.descricao).includes(q)||norm(it.codigo).includes(q)||norm(it.codigoBarras).includes(q))
     .slice(0,8).forEach(it=>{
       const d=document.createElement('div'); d.className='pick-item';
-      d.innerHTML=`<div class="pk-body"><div class="pk-desc">${esc(it.descricao)}</div><div class="pk-qty">Cód: ${esc(it.codigo)}</div></div><button class="btn btn-green" style="padding:8px 12px" onclick="selSaida('${esc(it.codigo)}')">Escolher</button>`;
+      d.innerHTML=`<div class="pk-body"><div class="pk-desc">${esc(it.descricao)}</div><div class="pk-qty">Cód: ${esc(it.codigo)}</div></div><button class="btn btn-green" style="padding:8px 12px" data-act="selSaida" data-codigo="${esc(it.codigo)}">Escolher</button>`;
       box.appendChild(d);
     });
 }
@@ -1419,6 +1427,36 @@ function nowLocal(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); r
 // "1.0 - PECA" -> "Unid.: PECA" (mostra só o nome da unidade de distribuição)
 function fmtUnidade(u){ if(!u) return ''; const p=String(u).split('-'); const nome=(p.length>1?p[p.length-1]:p[0]).trim(); return nome?'Unid.: '+nome:''; }
 
+/* ---------- Delegação de eventos ----------
+   Em vez de embutir os dados em onclick="fn('valor')" (frágil e inseguro se o
+   valor tiver aspas), guardamos o dado em data-* e tratamos o clique no container.
+   Assim nenhum dado da planilha é interpretado como código. */
+function bindClick(containerId, handlers){
+  const el=document.getElementById(containerId); if(!el) return;
+  el.addEventListener('click', e=>{
+    const t=e.target.closest('[data-act]'); if(!t || !el.contains(t)) return;
+    const fn=handlers[t.dataset.act]; if(fn) fn(t.dataset, e);
+  });
+}
+function setupDelegation(){
+  bindClick('item-list', {
+    setLoc:            d=>setLoc(d.loc),
+    openImg:           d=>openImg(d.url),
+    delImage:          d=>delImage(d.codigo, d.url),
+    delPendingImage:   d=>delPendingImage(d.codigo, Number(d.opid)),
+    scanInto:          d=>scanInto(d.input, d.kind),
+    salvarCampos:      d=>salvarCampos(d.codigo),
+    confirmInv:        d=>confirmInv(d.codigo)
+  });
+  // a seleção de fotos é um <input type=file> (evento change, não click)
+  document.getElementById('item-list').addEventListener('change', e=>{
+    const t=e.target.closest('[data-act="pickPhotos"]'); if(t) pickPhotos(t.dataset.codigo, e.target.files);
+  });
+  bindClick('pick-search-results', { addToPick:d=>addToPick(d.codigo) });
+  bindClick('saida-res',           { selSaida:d=>selSaida(d.codigo) });
+  bindClick('consumo-list',        { delConsumo:d=>delConsumo(d.id) });
+}
+
 /* ---------- Init ---------- */
 window.addEventListener('online', ()=>{ updateNet(); syncNow(); });
 window.addEventListener('offline', updateNet);
@@ -1426,6 +1464,7 @@ window.addEventListener('offline', updateNet);
 window.onload = async ()=>{
   document.getElementById('appver').textContent=APP_VERSION;
   if('serviceWorker' in navigator){ try{ await navigator.serviceWorker.register('./sw.js'); }catch(e){} }
+  setupDelegation();
   const sp=await idbGet('kv','pick'); if(sp&&sp.pick) pick=sp.pick;
   await refreshPending();
   document.getElementById('cfg-url').value=scriptUrl;

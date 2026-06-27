@@ -60,6 +60,11 @@
 
 **Bibliotecas via CDN (jsDelivr):**
 
+> ✅ **Integridade verificada em 2026-06-27 (v31):** as tags `<script>` agora usam
+> `integrity` (SRI) + `crossorigin`, então um arquivo adulterado pelo CDN é rejeitado
+> pelo navegador. O risco de **disponibilidade** (CDN fora do ar antes da 1ª carga)
+> permanece — para eliminá-lo de vez, self-host das libs (plano abaixo).
+
 - Risk: `html5-qrcode@2.3.8` e `xlsx@0.18.5` vêm de CDN externo. Se o CDN cair **antes**
   da primeira carga (quando o Service Worker ainda não cacheou), o leitor de QR e a
   geração de Excel não funcionam.

@@ -1,9 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#054B28"/>
-  <g transform="translate(116 120)">
-    <rect x="0" y="0" width="280" height="120" rx="40" fill="#149954"/>
-    <circle cx="70" cy="60" r="40" fill="#EF4136"/>
-    <rect x="0" y="152" width="280" height="120" rx="40" fill="#054B28" stroke="#149954" stroke-width="8"/>
-    <circle cx="210" cy="212" r="40" fill="#C1282A"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="UDESC">
+  <!-- Fundo branco arredondado: mantém o logo colorido legível tanto como ícone
+       instalado quanto sobre o cabeçalho/tela de login (verde escuro). -->
+  <rect width="512" height="512" rx="104" fill="#ffffff"/>
+  <g fill="none" stroke-width="54" stroke-linecap="round">
+    <!-- Arco superior (∩) — verde institucional -->
+    <path d="M186 246 L186 176 A70 70 0 0 0 326 176 L326 246" stroke="#149954"/>
+    <!-- Arco inferior (U) — verde escuro -->
+    <path d="M186 266 L186 336 A70 70 0 0 1 326 336 L326 266" stroke="#054B28"/>
   </g>
+  <!-- Pontos vermelhos da marca -->
+  <circle cx="256" cy="170" r="23" fill="#EF4136"/>
+  <circle cx="256" cy="342" r="23" fill="#C1282A"/>
 </svg>

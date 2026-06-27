@@ -74,3 +74,22 @@ um problema aparecer, ou uma ideia surgir, anote aqui (com data). É o que evita
   visível). `openModalEx(id,pushHistory)` reaproveita o slot de histórico ao trocar de aba. `pickPhotos`→revisão→`enviarFotos`/`sendPhotos`;
   `rotate90` via canvas. Escolhido girar no momento de adicionar (confiável; sem problema
   de CORS do Drive). Fotos antigas tortas: re-tirar com o novo fluxo.
+- **2026-06-27:** lote de melhorias (v31), só frontend — backend e planilha não mudam:
+  - **Segurança (XSS):** todos os `onclick`/`onchange` que embutiam dados (código,
+    localização, URL) viraram atributos `data-*` + **delegação de eventos** (`setupDelegation`
+    em `index.html`). Nenhum dado da planilha é mais interpretado como código, mesmo que
+    contenha aspas. Ids dos campos do card passaram a usar `esc()`. (Resolve o ponto fino
+    de segurança que eu apontei.)
+  - **Segurança (CDN):** `html5-qrcode` e `xlsx` agora carregam com `integrity` (SRI) +
+    `crossorigin` — protege contra o CDN servir um arquivo adulterado.
+  - **Desempenho:** busca da lista de itens com *debounce* de 120ms (`onSearchInput`) —
+    não reconstrói a lista a cada tecla.
+  - **Estética/acessibilidade:** zoom liberado (removido `user-scalable=no`); metatags de
+    PWA para iOS; **novo logo** — símbolo oficial da UDESC recriado como **SVG vetorial**
+    (`icon.svg`), em "selo" branco arredondado para ficar legível no cabeçalho/login (verde
+    escuro) e como ícone instalado. Vale como ícone, header e tela de login (todos apontam
+    para `./icon.svg`).
+  - **Lição:** `node --check` no `<script>` rodado e aprovado antes de publicar.
+  - **Pendente de decisão (não feito):** mover o `token` da URL (GET) para o corpo exigiria
+    redeploy do backend para ganho marginal (token expira em 1h, só aparece nos logs do
+    próprio Google) — deixado como está de propósito.
