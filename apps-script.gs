@@ -17,6 +17,19 @@
 var SHEET_NAME = 'Estoque';
 var IMAGE_FOLDER_NAME = 'Almoxarifado UDESC - Imagens';
 
+// ====== Tratamento de foto por IA (Gemini "Nano Banana") ======
+// A chave NÃO fica no código: cole em Configurações do projeto > Propriedades do script,
+// na chave GEMINI_API_KEY (assim ela nunca aparece no index.html, que é público).
+var GEMINI_MODEL = 'gemini-2.5-flash-image'; // modelo de imagem (image-out), nível gratuito
+var PROMPT_TRATAMENTO = [
+  'Edit this product photo into a clean e-commerce / inventory catalog image.',
+  'Remove the background and replace it with a uniform, neutral pure-white background.',
+  'Center the main item in the frame with a little padding, in a square 1:1 composition.',
+  'Improve lighting, color balance and maximize sharpness so every detail is clearly visible.',
+  'Keep the item perfectly faithful: same shape, same colors, and keep any text or labels',
+  'readable and unchanged. Do not add, remove or invent any objects.'
+].join(' ');
+
 // ====== Login com Google (autenticação) ======
 // Client ID criado no Google Cloud (NÃO é secreto — também fica visível no index.html).
 var CLIENT_ID = '768100742493-h1v8i5u47aip75rbcv52uvuej4o7v2mr.apps.googleusercontent.com';
@@ -498,7 +511,56 @@ function getImageFolder_() {
 }
 
 /**
+ * Trata uma foto com a IA de imagem do Gemini (fundo branco, item centralizado, nítido,
+ * 1:1 estilo catálogo). Recebe base64 (sem prefixo) + mime e devolve { data, mime } já
+ * tratados. Devolve null em QUALQUER falha (sem chave, offline, erro da API, resposta sem
+ * imagem) — quem chama deve então usar a foto original (rede de segurança).
+ */
+function tratarImagemGemini_(base64, mime) {
+  try {
+    var key = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+    if (!key) return null; // chave não configurada → mantém a original
+
+    var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
+      GEMINI_MODEL + ':generateContent?key=' + encodeURIComponent(key);
+    var payload = {
+      contents: [{
+        parts: [
+          { text: PROMPT_TRATAMENTO },
+          { inline_data: { mime_type: mime || 'image/jpeg', data: base64 } }
+        ]
+      }]
+    };
+    var resp = UrlFetchApp.fetch(url, {
+      method: 'post',
+      contentType: 'application/json',
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+    if (resp.getResponseCode() !== 200) return null;
+
+    var json = JSON.parse(resp.getContentText());
+    var parts = json && json.candidates && json.candidates[0] &&
+      json.candidates[0].content && json.candidates[0].content.parts;
+    if (!parts || !parts.length) return null;
+
+    for (var i = 0; i < parts.length; i++) {
+      // a resposta REST usa camelCase (inlineData); aceitamos snake_case por segurança
+      var inline = parts[i].inlineData || parts[i].inline_data;
+      if (inline && inline.data) {
+        return { data: inline.data, mime: inline.mimeType || inline.mime_type || 'image/png' };
+      }
+    }
+    return null; // resposta veio sem parte de imagem
+  } catch (e) {
+    return null; // qualquer exceção → usa a original
+  }
+}
+
+/**
  * Recebe imagens em Base64 e salva no Drive, anexando as URLs ao item.
+ * Cada imagem é tratada pela IA do Gemini antes de salvar; se o tratamento falhar,
+ * salva a foto original (nunca deixa de salvar). Só a versão final fica no Drive.
  * body: { codigo, images: [ { name, mime, data(base64 sem prefixo) } ] }
  */
 function uploadImages_(body) {
@@ -509,9 +571,18 @@ function uploadImages_(body) {
 
   body.images.forEach(function (img, i) {
     var mime = img.mime || 'image/jpeg';
+    var data = img.data;
+
+    // Tenta tratar com a IA; em qualquer falha, mantém os bytes originais.
+    var tratada = tratarImagemGemini_(data, mime);
+    if (tratada && tratada.data) {
+      data = tratada.data;
+      mime = tratada.mime || mime;
+    }
+
     var ext = mime.indexOf('png') >= 0 ? 'png' : 'jpg';
     var name = (img.name || (body.codigo + '_' + Date.now() + '_' + i)) + '.' + ext;
-    var blob = Utilities.newBlob(Utilities.base64Decode(img.data), mime, name);
+    var blob = Utilities.newBlob(Utilities.base64Decode(data), mime, name);
     var file = folder.createFile(blob);
     try {
       file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
