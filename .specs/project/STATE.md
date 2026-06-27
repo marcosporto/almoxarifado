@@ -115,6 +115,11 @@ um problema aparecer, ou uma ideia surgir, anote aqui (com data). É o que evita
   usuário vai apagar 2 colunas duplicadas/vazias na aba Estoque (O e P: "Dias para Aviso de
   Validade" e "Status do Inventário" repetidas) — `buildColMap_` usa a 1ª ocorrência, então as
   duplicatas são ignoradas e apagá-las é seguro.
+  **Ajuste fino do prompt (só backend, sem bump de versão):** o produto saía pequeno; após
+  iterar o `PROMPT_TRATAMENTO` (remover moldura preta → fundo branco até a borda → zoom/recorte
+  agressivo deixando o item ~90-95% do quadro), o usuário aprovou ("está bom, pode fechar").
+  **Lição:** modelos de imagem não obedecem tamanho com precisão — alternativa garantida
+  (não feita, custo/benefício não compensou): recorte automático da margem branca no app após a IA.
 - **2026-06-27:** logo (v32) — o usuário forneceu o **arquivo oficial da marca**
   (`vertical_negativo.svg`, versão branca). Substituiu a recriação da v31: `logo.svg` =
   logo oficial (transparente) usado no cabeçalho e no login; `icon.svg` = mesmo logo
