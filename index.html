@@ -34,7 +34,7 @@
   /* ====== App bar ====== */
   header{ background:var(--verde-escuro); color:#fff; padding:12px 14px 10px; position:sticky; top:0; z-index:30; box-shadow:0 2px 8px rgba(0,0,0,.2); }
   .bar-top{ display:flex; align-items:center; gap:10px; }
-  .logo{ width:34px; height:34px; flex:0 0 auto; }
+  .logo{ height:34px; width:auto; flex:0 0 auto; }
   header h1{ font-size:19px; line-height:1; }
   header h1 small{ display:block; font-size:10px; font-weight:normal; letter-spacing:1px; opacity:.85; font-family:Verdana,sans-serif; text-transform:none; margin-top:3px; }
   .icon-btn{ margin-left:auto; background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.35); color:#fff; width:38px; height:38px; border-radius:9px; font-size:17px; cursor:pointer; flex:0 0 auto; }
@@ -182,7 +182,7 @@
   /* ====== Tela de login ====== */
   #login-screen{ position:fixed; inset:0; z-index:250; display:none; flex-direction:column; align-items:center; justify-content:center; padding:28px; background:linear-gradient(160deg,var(--verde-escuro),#02331b); color:#fff; text-align:center; }
   .login-card{ width:100%; max-width:360px; }
-  .login-logo{ width:84px; height:84px; margin-bottom:16px; }
+  .login-logo{ width:auto; height:78px; margin-bottom:18px; }
   .login-title{ font-size:30px; }
   .login-sub{ font-size:11px; letter-spacing:1px; opacity:.85; margin-top:4px; }
   .login-hint{ font-size:14px; line-height:1.5; opacity:.9; margin:22px 0; }
@@ -194,7 +194,7 @@
 
 <header>
   <div class="bar-top">
-    <img class="logo" src="./icon.svg" alt="UDESC">
+    <img class="logo" src="./logo.svg" alt="UDESC">
     <h1 class="titulo">Almoxarifado<small>UNIVERSIDADE DO ESTADO DE SANTA CATARINA</small></h1>
     <button class="icon-btn" onclick="openModal('config')" title="Configurar">⚙️</button>
   </div>
@@ -228,7 +228,7 @@
 <!-- Tela de login (cobre o app enquanto ninguém entrou) -->
 <div id="login-screen">
   <div class="login-card">
-    <img class="login-logo" src="./icon.svg" alt="UDESC">
+    <img class="login-logo" src="./logo.svg" alt="UDESC">
     <h1 class="titulo login-title">Almoxarifado</h1>
     <p class="login-sub">UNIVERSIDADE DO ESTADO DE SANTA CATARINA</p>
     <p class="login-hint">Entre com sua conta Google autorizada para acessar o inventário.</p>
@@ -414,7 +414,7 @@
 /* =========================================================================
    Almoxarifado UDESC — app offline-first
    ========================================================================= */
-const APP_VERSION = 'v31';
+const APP_VERSION = 'v32';
 // Login com Google: mesmo Client ID do backend (não é secreto, fica visível de propósito).
 const CLIENT_ID = '768100742493-h1v8i5u47aip75rbcv52uvuej4o7v2mr.apps.googleusercontent.com';
 

@@ -93,3 +93,8 @@ um problema aparecer, ou uma ideia surgir, anote aqui (com data). É o que evita
   - **Pendente de decisão (não feito):** mover o `token` da URL (GET) para o corpo exigiria
     redeploy do backend para ganho marginal (token expira em 1h, só aparece nos logs do
     próprio Google) — deixado como está de propósito.
+- **2026-06-27:** logo (v32) — o usuário forneceu o **arquivo oficial da marca**
+  (`vertical_negativo.svg`, versão branca). Substituiu a recriação da v31: `logo.svg` =
+  logo oficial (transparente) usado no cabeçalho e no login; `icon.svg` = mesmo logo
+  oficial em branco sobre azulejo verde-escuro (ícone instalável). **Lição/preferência:**
+  para o logo, sempre usar o asset oficial da marca, não recriar a forma à mão.
