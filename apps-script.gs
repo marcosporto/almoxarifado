@@ -23,8 +23,10 @@ var IMAGE_FOLDER_NAME = 'Almoxarifado UDESC - Imagens';
 var GEMINI_MODEL = 'gemini-2.5-flash-image'; // modelo de imagem (image-out), nível gratuito
 var PROMPT_TRATAMENTO = [
   'Edit this product photo into a clean e-commerce / inventory catalog image.',
-  'Remove the background and replace it with a uniform, neutral pure-white background.',
-  'Center the main item in the frame with a little padding, in a square 1:1 composition.',
+  'Remove the background and replace it with a uniform, pure-white background that fills the',
+  'entire square frame edge to edge. Do NOT add any border, frame, vignette or colored margin.',
+  'Scale the main item so it is large and prominent, filling about 90% of the square frame,',
+  'centered, leaving only a small uniform white margin around it, in a 1:1 composition.',
   'Improve lighting, color balance and maximize sharpness so every detail is clearly visible.',
   'Keep the item perfectly faithful: same shape, same colors, and keep any text or labels',
   'readable and unchanged. Do not add, remove or invent any objects.'
