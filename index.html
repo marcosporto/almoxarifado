@@ -414,7 +414,7 @@
 /* =========================================================================
    Almoxarifado UDESC — app offline-first
    ========================================================================= */
-const APP_VERSION = 'v34';
+const APP_VERSION = 'v35';
 // Login com Google: mesmo Client ID do backend (não é secreto, fica visível de propósito).
 const CLIENT_ID = '768100742493-h1v8i5u47aip75rbcv52uvuej4o7v2mr.apps.googleusercontent.com';
 
@@ -770,6 +770,36 @@ function nearExpiry(it){
 }
 function norm(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim(); }
 
+// escapa caracteres especiais de regex num termo de busca
+function escapeRe_(s){ return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
+
+// Nota de relevância de um item para a busca (q já normalizado; tokens = palavras da busca).
+// Devolve -1 se NÃO casa (alguma palavra não aparece em nenhum campo). Código e código de
+// barras são identificadores ÚNICOS, então casar neles DOMINA o ranking (vão pro topo).
+function searchScore_(it, q, tokens){
+  const desc=norm(it.descricao), cod=norm(it.codigo), bar=norm(it.codigoBarras), kw=norm(it.palavrasChave);
+  const hay=desc+' '+cod+' '+bar+' '+kw;
+  for(const t of tokens){ if(!hay.includes(t)) return -1; }    // E (AND): todas as palavras
+  let s=0;
+  if(cod===q || bar===q) s+=10000;                             // match único / definitivo
+  else if(cod.startsWith(q) || bar.startsWith(q)) s+=2000;     // digitou parte do código
+  if(desc.startsWith(q)) s+=200;
+  for(const t of tokens){
+    if(new RegExp('(^|[^a-z0-9])'+escapeRe_(t)+'([^a-z0-9]|$)').test(desc)) s+=20; // palavra inteira
+    else if(desc.includes(t)) s+=5;                                                 // pedaço
+    if(kw.includes(t)) s+=12;                                                       // palavra-chave
+  }
+  return s;
+}
+
+// Filtra + ordena uma lista por relevância (usado nas buscas de separação e saída avulsa).
+function searchFilter_(list, raw){
+  const q=norm(raw); if(!q) return list;
+  const tokens=q.split(/\s+/).filter(Boolean);
+  return list.map(it=>({it, s:searchScore_(it,q,tokens)}))
+             .filter(x=>x.s>=0).sort((a,b)=>b.s-a.s).map(x=>x.it);
+}
+
 // Busca: aguarda uma pausa na digitação antes de re-renderizar (evita reconstruir
 // a lista a cada tecla — mais fluido em inventários grandes).
 let _searchT;
@@ -777,18 +807,19 @@ function onSearchInput(){ clearTimeout(_searchT); _searchT=setTimeout(render, 12
 
 function render(){
   const q = norm(document.getElementById('search-box').value);
+  const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
   let list = items.filter(it=>{
     if(!locMatch(it)) return false;
     if(filter==='pendentes' && it.inventariado) return false;
     if(filter==='feitos' && !it.inventariado) return false;
     if(filter==='alertas' && !isAlert(it)) return false;
-    if(q){
-      return norm(it.descricao).includes(q) || norm(it.codigo).includes(q) || norm(it.codigoBarras).includes(q);
-    }
+    if(q){ it._score = searchScore_(it, q, tokens); return it._score >= 0; }
     return true;
   });
-  // ordena: alertas primeiro, depois por localização (rota natural)
-  list.sort((a,b)=> (isAlert(b)-isAlert(a)) || natCmp(a.localizacao,b.localizacao) || natCmp(a.descricao,b.descricao));
+  // Com busca: relevância primeiro (código único no topo) e depois os critérios de sempre.
+  // Sem busca: alertas primeiro, depois por localização (rota natural).
+  if(q) list.sort((a,b)=> (b._score-a._score) || (isAlert(b)-isAlert(a)) || natCmp(a.localizacao,b.localizacao) || natCmp(a.descricao,b.descricao));
+  else  list.sort((a,b)=> (isAlert(b)-isAlert(a)) || natCmp(a.localizacao,b.localizacao) || natCmp(a.descricao,b.descricao));
 
   const el=document.getElementById('item-list'); el.innerHTML='';
   list.forEach(it=> el.appendChild(card(it)));
@@ -1155,7 +1186,7 @@ function renderPickSearch(){
   const q=norm(document.getElementById('pick-search').value);
   const box=document.getElementById('pick-search-results'); box.innerHTML='';
   if(!q) return;
-  items.filter(it=> norm(it.descricao).includes(q)||norm(it.codigo).includes(q)||norm(it.codigoBarras).includes(q))
+  searchFilter_(items, q)
     .slice(0,8).forEach(it=>{
       const d=document.createElement('div'); d.className='pick-item';
       d.innerHTML=`<div class="pk-body"><span class="pk-loc">${esc(it.localizacao)||'s/ local'}</span><div class="pk-desc">${esc(it.descricao)}</div></div><button class="btn btn-green" style="padding:8px 12px" data-act="addToPick" data-codigo="${esc(it.codigo)}">+</button>`;
@@ -1349,7 +1380,7 @@ function renderSaidaBusca(){
   const q=norm(document.getElementById('saida-busca').value);
   const box=document.getElementById('saida-res'); box.innerHTML='';
   if(!q) return;
-  items.filter(it=> norm(it.descricao).includes(q)||norm(it.codigo).includes(q)||norm(it.codigoBarras).includes(q))
+  searchFilter_(items, q)
     .slice(0,8).forEach(it=>{
       const d=document.createElement('div'); d.className='pick-item';
       d.innerHTML=`<div class="pk-body"><div class="pk-desc">${esc(it.descricao)}</div><div class="pk-qty">Cód: ${esc(it.codigo)}</div></div><button class="btn btn-green" style="padding:8px 12px" data-act="selSaida" data-codigo="${esc(it.codigo)}">Escolher</button>`;
