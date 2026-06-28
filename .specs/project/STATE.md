@@ -120,6 +120,13 @@ um problema aparecer, ou uma ideia surgir, anote aqui (com data). É o que evita
   agressivo deixando o item ~90-95% do quadro), o usuário aprovou ("está bom, pode fechar").
   **Lição:** modelos de imagem não obedecem tamanho com precisão — alternativa garantida
   (não feita, custo/benefício não compensou): recorte automático da margem branca no app após a IA.
+- **2026-06-27:** feature **Busca Inteligente + Palavras-chave (IA)** iniciada —
+  `features/busca-palavras-chave/`. Fases SPECIFY, DESIGN e TASKS concluídas e aprovadas
+  (escopo: Estágio 1 = busca por palavras/ordem livre + ranqueamento [frontend]; Estágio 3 =
+  coluna "Palavras-chave" + menu que a IA de **texto** do Gemini preenche em lote [backend]).
+  Decisões: geração 1x + menu manual (sem auto p/ itens novos); fuzzy (Est.2) e foto/OCR (Est.4)
+  fora de escopo. 7 tasks (T1–T3 backend, T4–T5 frontend, T6–T7 publicar/verificar). **Próximo:**
+  EXECUTE a partir da T1. Modelo de texto previsto: `gemini-2.5-flash-lite` (confirmar custo na T6).
 - **2026-06-27:** logo (v32) — o usuário forneceu o **arquivo oficial da marca**
   (`vertical_negativo.svg`, versão branca). Substituiu a recriação da v31: `logo.svg` =
   logo oficial (transparente) usado no cabeçalho e no login; `icon.svg` = mesmo logo
