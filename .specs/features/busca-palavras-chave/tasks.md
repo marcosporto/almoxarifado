@@ -1,8 +1,10 @@
 # Busca Inteligente + Palavras-chave (IA) — Tasks
 
 **Design**: `.specs/features/busca-palavras-chave/design.md`
-**Status**: EXECUTE em andamento. ✅ Fase A (backend): T1 (coluna+doGet), T2 (helper IA texto+
-diagnóstico), T3 (orquestrador+menu) — feitos e commitados. ⏭️ Próximo: Fase B (frontend).
+**Status**: EXECUTE em andamento. ✅ Fase A (backend): T1, T2, T3 — feitos/commitados.
+✅ Fase B (frontend): T4 (campo flui de graça via mergeWithPending+snapshot) e T5 (busca por
+palavras + ranqueamento + DRY, v35) — feitos/publicados. ⏭️ Próximo: Fase C — T6 (usuário:
+republicar backend, rodar diagnóstico de custo, acionar o menu) e T7 (verificação fim a fim).
 
 ---
 
