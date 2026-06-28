@@ -1,7 +1,8 @@
 # Busca Inteligente + Palavras-chave (IA) — Tasks
 
 **Design**: `.specs/features/busca-palavras-chave/design.md`
-**Status**: Draft (aguardando aprovação para Execute)
+**Status**: EXECUTE em andamento. ✅ Fase A (backend): T1 (coluna+doGet), T2 (helper IA texto+
+diagnóstico), T3 (orquestrador+menu) — feitos e commitados. ⏭️ Próximo: Fase B (frontend).
 
 ---
 
