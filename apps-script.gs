@@ -62,6 +62,7 @@ var COLUMNS = [
   { key: 'validade',       label: 'Data de Validade' },
   { key: 'diasAviso',      label: 'Dias para Aviso de Validade' },
   { key: 'observacoes',    label: 'Observações' },
+  { key: 'palavrasChave',  label: 'Palavras-chave' },
   { key: 'inventariado',   label: 'Status do Inventário' },
   { key: 'conferidoPor',   label: 'Conferido por' },
   { key: 'situacao',       label: 'Situação' },
@@ -106,7 +107,7 @@ function getSheet_() {
 // Acrescenta ao cabeçalho qualquer coluna nova que ainda não exista
 // (planilhas antigas não têm as colunas de imagens/observações/status etc.)
 var WANT_KEYS = ['codigoBarras', 'localizacao', 'diferenca', 'estoqueMinimo', 'validade',
-                 'diasAviso', 'observacoes', 'inventariado', 'conferidoPor', 'situacao', 'imagens'];
+                 'diasAviso', 'observacoes', 'palavrasChave', 'inventariado', 'conferidoPor', 'situacao', 'imagens'];
 function ensureColumns_(sheet) {
   var lastCol = sheet.getLastColumn();
   var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
@@ -165,6 +166,11 @@ function aliases_() {
     'dias para aviso de validade': 'diasAviso',
     'dias de aviso de validade': 'diasAviso',
     'observacoes': 'observacoes',
+    'palavras-chave': 'palavrasChave',
+    'palavras chave': 'palavrasChave',
+    'palavra-chave': 'palavrasChave',
+    'apelidos': 'palavrasChave',
+    'apelido': 'palavrasChave',
     'status inventario': 'inventariado',
     'status de inventario': 'inventariado',
     'status do inventario': 'inventariado',
@@ -306,6 +312,7 @@ function doGet(e) {
         validade: col.validade !== undefined ? isoDate_(row[col.validade]) : '',
         diasAviso: col.diasAviso !== undefined && row[col.diasAviso] !== '' ? Number(row[col.diasAviso]) : null,
         observacoes: col.observacoes !== undefined ? String(row[col.observacoes] || '') : '',
+        palavrasChave: col.palavrasChave !== undefined ? String(row[col.palavrasChave] || '') : '',
         inventariado: col.inventariado !== undefined ? toBool_(row[col.inventariado]) : false,
         imagens: imagensRaw ? imagensRaw.split(',').map(function (s) { return s.trim(); }).filter(String) : []
       });

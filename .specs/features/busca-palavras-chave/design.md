@@ -53,15 +53,21 @@ graph TD
   `norm()` em [index.html:771](../../../index.html)). Um item casa **se TODAS as palavras**
   aparecem no "texto de busca" do item (concatenação dos campos). → resolve ordem livre.
 - **Ranqueamento (nota):** cada item recebe uma pontuação; a lista é ordenada por nota
-  decrescente quando há busca. Fórmula (simples e explicável):
+  decrescente quando há busca. Como **código e código de barras são IDENTIFICADORES ÚNICOS**,
+  um casamento neles é praticamente "achei ESTE item" e **domina** o ranking (match exato vai
+  pro topo absoluto). Fórmula:
   | Sinal | Pontos |
   |---|---|
-  | `codigo` ou `codigoBarras` igual à query inteira | +1000 |
+  | query inteira **igual** a `codigo` ou a `codigoBarras` (match único/definitivo) | +10000 |
+  | `codigo`/`codigoBarras` **começa com** a query inteira (digitou parte do código) | +2000 |
   | `descricao` começa com a query inteira | +200 |
   | por palavra: casa como **palavra inteira** na descrição | +20 |
-  | por palavra: casa no **meio** de um campo (substring) | +5 |
   | por palavra: casa nas **palavras-chave** | +12 |
+  | por palavra: casa no **meio** de um campo (substring) | +5 |
   Empate → mantém o critério atual (alerta → localização → descrição).
+  > Nota de design: a unicidade do código/código de barras é o sinal mais forte da busca —
+  > por isso a diferença de ordem de grandeza (10000/2000 vs. dezenas) garante que ele sempre
+  > vença um casamento de texto na descrição.
 - **Função compartilhada (DRY):** criar `matchScore_(it, tokens)` (devolve nota ou -1 se não
   casa) e usar nos **três** pontos de busca que hoje repetem o mesmo `includes`: lista
   principal (`render`, [index.html:786](../../../index.html)), saída avulsa (`renderSaidaBusca`,
