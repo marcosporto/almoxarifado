@@ -719,6 +719,66 @@ function diagnosticarGeminiTexto() {
   Logger.log('3) Resposta (início): ' + resp.getContentText().substring(0, 800));
 }
 
+/**
+ * Orquestra a geração: pega só os itens SEM palavras-chave (idempotente), processa em lotes,
+ * grava na coluna, para com segurança perto do limite de tempo e devolve um resumo.
+ */
+function gerarPalavrasChave_() {
+  var inicio = Date.now();
+  var LIMITE_MS = 5 * 60 * 1000;   // teto do Apps Script é ~6 min; paramos antes, por segurança
+  var LOTE = 25;
+
+  var sheet = getSheet_();          // garante a coluna "Palavras-chave"
+  var col = buildColMap_(sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]);
+  if (col.codigo === undefined || col.descricao === undefined || col.palavrasChave === undefined)
+    return { ok: false, error: 'Faltam colunas Código/Descrição/Palavras-chave na planilha.' };
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { ok: true, gerados: 0, pulados: 0, falhas: 0, parouNoMeio: false };
+
+  // Lê as 3 colunas de uma vez (rápido). O "id" de cada item é o número da linha.
+  var nLin = lastRow - 1;
+  var codigos = sheet.getRange(2, col.codigo + 1, nLin, 1).getValues();
+  var descs   = sheet.getRange(2, col.descricao + 1, nLin, 1).getValues();
+  var kws     = sheet.getRange(2, col.palavrasChave + 1, nLin, 1).getValues();
+
+  // Pendentes = tem código e descrição, e palavras-chave vazio.
+  var pend = [];
+  for (var i = 0; i < nLin; i++) {
+    var temCod  = String(codigos[i][0] || '').trim() !== '';
+    var temDesc = String(descs[i][0]   || '').trim() !== '';
+    var temKw   = String(kws[i][0]     || '').trim() !== '';
+    if (temCod && temDesc && !temKw) pend.push({ row: i + 2, desc: String(descs[i][0]) });
+  }
+
+  var pulados = nLin - pend.length;   // já preenchidos, ou sem código/descrição
+  var gerados = 0, falhas = 0, parouNoMeio = false;
+
+  for (var p = 0; p < pend.length; p += LOTE) {
+    if (Date.now() - inicio > LIMITE_MS) { parouNoMeio = true; break; }
+    var lote = pend.slice(p, p + LOTE).map(function (x) { return { id: x.row, desc: x.desc }; });
+    var mapa = gerarPalavrasChaveLote_(lote);
+    lote.forEach(function (x) {
+      var kw = mapa[x.id];
+      if (kw) { sheet.getRange(x.id, col.palavrasChave + 1).setValue(kw); gerados++; }
+      else    { falhas++; }
+    });
+  }
+  return { ok: true, gerados: gerados, pulados: pulados, falhas: falhas, parouNoMeio: parouNoMeio };
+}
+
+// Chamado pelo menu: roda a geração e mostra o resumo.
+function gerarPalavrasChaveMenu() {
+  var ui = SpreadsheetApp.getUi();
+  var res = gerarPalavrasChave_();
+  if (!res.ok) { ui.alert('Gerar palavras-chave', res.error, ui.ButtonSet.OK); return; }
+  var msg = 'Gerados: ' + res.gerados +
+    '\nPulados (já tinham / sem descrição): ' + res.pulados +
+    '\nFalhas (a IA não retornou): ' + res.falhas;
+  if (res.parouNoMeio) msg += '\n\n⏱️ Parei perto do limite de tempo. Rode de novo para continuar — os já feitos serão pulados.';
+  ui.alert('Palavras-chave (IA)', msg, ui.ButtonSet.OK);
+}
+
 /* ------------------------------------------------------------------ */
 /* Consumo — registro de saídas de materiais (aba "Consumo")          */
 /* ------------------------------------------------------------------ */
@@ -816,6 +876,7 @@ function onOpen() {
     .createMenu('🔄 Almoxarifado')
     .addItem('1) Preparar aba "Importar"', 'prepararImportar')
     .addItem('2) Atualizar estoque (mesclar)', 'atualizarEstoqueMenu')
+    .addItem('3) Gerar palavras-chave (IA)', 'gerarPalavrasChaveMenu')
     .addToUi();
 }
 
