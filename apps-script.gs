@@ -36,6 +36,21 @@ var PROMPT_TRATAMENTO = [
   'invent any objects.'
 ].join(' ');
 
+// ====== Palavras-chave por IA (TEXTO) ======
+// Modelo de TEXTO (muito mais barato que o de imagem); reusa a mesma GEMINI_API_KEY.
+var GEMINI_TEXT_MODEL = 'gemini-2.5-flash-lite';
+// Prompt "ancorado": só expande o que está na descrição, nunca inventa dados.
+var PROMPT_KW = [
+  'Você recebe uma lista numerada de descrições de itens de almoxarifado.',
+  'Para CADA item, gere de 4 a 10 palavras-chave (sinônimos, nome popular e categoria) que',
+  'ajudem a encontrá-lo numa busca. Use português, tudo em minúsculas, separadas por vírgula.',
+  'Baseie-se SOMENTE na descrição; não invente marca, modelo, voltagem, tamanho nem qualquer',
+  'dado que não esteja escrito.',
+  'Responda APENAS em JSON: um array de objetos no formato',
+  '{"id": <numero>, "kw": "palavra1, palavra2, ..."}, repetindo o MESMO id de cada item.',
+  'Itens:'
+].join(' ');
+
 // ====== Login com Google (autenticação) ======
 // Client ID criado no Google Cloud (NÃO é secreto — também fica visível no index.html).
 var CLIENT_ID = '768100742493-h1v8i5u47aip75rbcv52uvuej4o7v2mr.apps.googleusercontent.com';
@@ -631,6 +646,77 @@ function uploadImages_(body) {
   if (cacheKey) cache.put(cacheKey, JSON.stringify(urls), 21600);
 
   return { ok: true, codigo: String(body.codigo), urls: urls };
+}
+
+/* ------------------------------------------------------------------ */
+/* Palavras-chave por IA (texto) — apelidos/sinônimos para a busca    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Recebe um LOTE de itens [{ id, desc }] e devolve um mapa { id: "palavras, chave" }.
+ * Manda tudo numa única chamada (eficiente) e força a resposta em JSON.
+ * Em QUALQUER falha (sem chave, sem cota, erro, JSON inválido) devolve mapa vazio —
+ * quem chama simplesmente não grava nada para aqueles itens (rede de segurança).
+ */
+function gerarPalavrasChaveLote_(itens) {
+  var out = {};
+  try {
+    var key = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+    if (!key || !itens || !itens.length) return out;
+
+    var lista = itens.map(function (it) {
+      return it.id + ') ' + String(it.desc || '').replace(/\s+/g, ' ').trim();
+    }).join('\n');
+
+    var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
+      GEMINI_TEXT_MODEL + ':generateContent?key=' + encodeURIComponent(key);
+    var payload = {
+      contents: [{ parts: [{ text: PROMPT_KW + '\n' + lista }] }],
+      generationConfig: { responseMimeType: 'application/json', temperature: 0.2 }
+    };
+    var resp = UrlFetchApp.fetch(url, {
+      method: 'post', contentType: 'application/json',
+      payload: JSON.stringify(payload), muteHttpExceptions: true
+    });
+    if (resp.getResponseCode() !== 200) return out;
+
+    var json = JSON.parse(resp.getContentText());
+    var txt = json && json.candidates && json.candidates[0] && json.candidates[0].content &&
+      json.candidates[0].content.parts && json.candidates[0].content.parts[0] &&
+      json.candidates[0].content.parts[0].text;
+    if (!txt) return out;
+
+    var arr = JSON.parse(txt);                 // esperado: [{id, kw}, ...]
+    if (!arr || !arr.length) return out;
+    arr.forEach(function (o) {
+      if (o && o.id !== undefined && o.kw) out[o.id] = String(o.kw).toLowerCase().trim();
+    });
+    return out;
+  } catch (e) {
+    return out;                                // nunca lança / nunca grava lixo
+  }
+}
+
+/**
+ * Diagnóstico TEMPORÁRIO: rode pelo editor (▶) para confirmar custo/cota do modelo de TEXTO
+ * antes de rodar o lote. Mostra o HTTP code e o início da resposta no Registro de execução.
+ */
+function diagnosticarGeminiTexto() {
+  var key = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
+  Logger.log('1) Chave configurada? ' + (key ? 'SIM (' + key.length + ' caracteres)' : 'NÃO'));
+  if (!key) return;
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
+    GEMINI_TEXT_MODEL + ':generateContent?key=' + encodeURIComponent(key);
+  var payload = {
+    contents: [{ parts: [{ text: PROMPT_KW + '\n1) BORRIFADOR - AGUA PLASTICO 500ML' }] }],
+    generationConfig: { responseMimeType: 'application/json', temperature: 0.2 }
+  };
+  var resp = UrlFetchApp.fetch(url, {
+    method: 'post', contentType: 'application/json',
+    payload: JSON.stringify(payload), muteHttpExceptions: true
+  });
+  Logger.log('2) Modelo: ' + GEMINI_TEXT_MODEL + ' | Código HTTP: ' + resp.getResponseCode() + '  (200 = OK)');
+  Logger.log('3) Resposta (início): ' + resp.getContentText().substring(0, 800));
 }
 
 /* ------------------------------------------------------------------ */
