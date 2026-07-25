@@ -19,7 +19,9 @@ Verifier, discrimination sensor).
 **Design**: (fase Design pulada — escopo Medium, sem decisão arquitetural: `Range.setNote()` é uso
 direto da API do Google Sheets, sem padrão novo a desenhar)
 **Spec**: `.specs/features/dicionario-dados/spec.md`
-**Status**: Approved
+**Status**: In Progress — ✅ T1 (82dc2b3), T2 (53d70f2), T3 (45bcbf5), T4 (85c2a1a),
+T5 (913685b), T6 (11130df). ⏭️ T7: usuário republica o backend (Implantar → Gerenciar
+implantações → Nova versão) e confere as notas nas 2 abas + app funcionando.
 
 ---
 
