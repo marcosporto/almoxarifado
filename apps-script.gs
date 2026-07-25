@@ -193,6 +193,10 @@ function getSheet_() {
   } else {
     ensureColumns_(sheet);
   }
+  // Dicionário de dados: nota explicativa em cada cabeçalho (lê o cabeçalho DEPOIS do
+  // ensureColumns_, para colunas recém-criadas já saírem com nota)
+  var headerRow = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  applyHeaderNotes_(sheet, estoqueNotesByIndex_(headerRow));
   return sheet;
 }
 
