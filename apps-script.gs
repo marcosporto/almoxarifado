@@ -865,6 +865,37 @@ var CONSUMO_SHEET = 'Consumo';
 // As colunas são posicionais, então renomear é seguro.
 var CONSUMO_HEADERS = ['ID', 'Data da Saída', 'Código Interno', 'Descrição', 'Quantidade', 'Solicitante', 'Observações', 'Registrado por'];
 
+// Dicionário de dados da aba "Consumo" (chave = rótulo do cabeçalho — Consumo não usa aliases).
+// Vira NOTA no cabeçalho (applyHeaderNotes_) e é espelhado em .specs/codebase/DATA-DICTIONARY.md.
+var CONSUMO_DOCS = {
+  'ID': {
+    desc: 'Identificador único do lançamento, gerado pelo app. Usado para localizar e ' +
+      'remover o lançamento. Não editar à mão.'
+  },
+  'Data da Saída': {
+    desc: 'Data e hora em que o material saiu (dd/MM/aaaa HH:mm). Definida no app no momento do lançamento.'
+  },
+  'Código Interno': {
+    desc: 'Código do item retirado (mesmo da aba Estoque). Formatado como texto para preservar ' +
+      'zeros à esquerda.'
+  },
+  'Descrição': {
+    desc: 'Descrição do item no momento da saída (copiada da aba Estoque).'
+  },
+  'Quantidade': {
+    desc: 'Quantidade retirada neste lançamento.'
+  },
+  'Solicitante': {
+    desc: 'Quem pediu o material. Preenchido no app ao registrar a saída.'
+  },
+  'Observações': {
+    desc: 'Texto livre sobre o lançamento. Preenchido no app.'
+  },
+  'Registrado por': {
+    desc: 'E-mail de quem registrou a saída (login com Google). Gravado automaticamente pelo backend.'
+  }
+};
+
 // Cria a aba "Consumo" (com formatos) se não existir e garante os cabeçalhos padronizados
 function getConsumoSheet_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
