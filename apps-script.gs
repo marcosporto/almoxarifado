@@ -92,6 +92,83 @@ function canonicalLabelByKey_() {
   return m;
 }
 
+// ====== Dicionário de dados (fonte única dos textos) ======
+// Explicação de cada coluna da aba "Estoque". Vira NOTA no cabeçalho da planilha
+// (applyHeaderNotes_) e é espelhada em .specs/codebase/DATA-DICTIONARY.md.
+// Formato: desc = o que é + quem/o que preenche; values = valores possíveis (opcional).
+var COLUMN_DOCS = {
+  codigo: {
+    desc: 'Identificador único do item no almoxarifado (mesmo código do sistema oficial). ' +
+      'O app usa esta coluna para casar as linhas na sincronização e na importação ' +
+      '(zeros à esquerda são ignorados no casamento). Vem da carga/atualização de estoque; o app não a altera.'
+  },
+  codigoBarras: {
+    desc: 'Código de barras impresso no produto. Preenchido pelo conferente no app ' +
+      '(lendo com a câmera ou digitando). Usado na busca e na leitura por câmera.'
+  },
+  descricao: {
+    desc: 'Nome do item, igual ao sistema oficial. Vem da carga/atualização de estoque. ' +
+      'Usado na busca do app e nos lançamentos de consumo.'
+  },
+  unidade: {
+    desc: 'Unidade de distribuição do item (ex.: unidade, caixa, pacote). Vem do sistema oficial.'
+  },
+  localizacao: {
+    desc: 'Onde o item fica fisicamente (ex.: prateleira, gaveta). Preenchido pelo conferente no app. ' +
+      'Usado no filtro por QR Code e para ordenar a rota da lista de separação (ordem alfanumérica natural).'
+  },
+  estoqueSistema: {
+    desc: 'Quantidade segundo o sistema oficial. Vem da carga inicial ou do menu ' +
+      '"🔄 Almoxarifado → Atualizar estoque". Vira 0 quando o item some da cópia do sistema ' +
+      '(e a coluna Situação recebe "Sem estoque").'
+  },
+  estoqueFisico: {
+    desc: 'Quantidade contada fisicamente pelo conferente no app (botão Confirmar do item).'
+  },
+  diferenca: {
+    desc: 'Conferido − Estoque Sistema. Calculada automaticamente pelo backend quando o item é ' +
+      'confirmado como inventariado (negativo = falta, positivo = sobra). Não editar à mão.'
+  },
+  estoqueMinimo: {
+    desc: 'Quantidade mínima desejada. Abaixo disso o app destaca o item com borda vermelha. ' +
+      'Preenchido pelo conferente no app.'
+  },
+  validade: {
+    desc: 'Data de validade do item (exibida como dd/MM/aaaa). Preenchida pelo conferente no app. ' +
+      'Gera o alerta laranja junto com "Dias para Aviso de Validade".'
+  },
+  diasAviso: {
+    desc: 'Quantos dias antes da validade o app começa a avisar (etiqueta laranja no card). ' +
+      'Preenchido pelo conferente no app.'
+  },
+  observacoes: {
+    desc: 'Texto livre do conferente sobre o item. Preenchido no app.'
+  },
+  palavrasChave: {
+    desc: 'Sinônimos/apelidos do item usados pela busca do app (minúsculas, separados por vírgula). ' +
+      'Gerados em lote pela IA (menu "🔄 Almoxarifado → Gerar palavras-chave (IA)") e ' +
+      'também editáveis à mão.'
+  },
+  inventariado: {
+    desc: 'Indica se o conferente já confirmou a contagem deste item no app. ' +
+      'Preenchido pelo app ao Confirmar; a atualização de estoque marca "Não" em itens novos.',
+    values: 'Sim / Não (valores antigos aceitos: true, sim, 1, inventariado)'
+  },
+  conferidoPor: {
+    desc: 'E-mail de quem confirmou o inventário do item (login com Google). ' +
+      'Gravado automaticamente pelo backend ao Confirmar.'
+  },
+  situacao: {
+    desc: 'Situação do item em relação à última atualização de estoque. Preenchida automaticamente ' +
+      'pelo menu "🔄 Almoxarifado → Atualizar estoque".',
+    values: '"Sem estoque" (item sumiu da cópia do sistema) ou vazio (normal)'
+  },
+  imagens: {
+    desc: 'Links das fotos do item no Google Drive, separados por vírgula. ' +
+      'Gravados automaticamente pelo app ao enviar fotos. Não editar à mão.'
+  }
+};
+
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
