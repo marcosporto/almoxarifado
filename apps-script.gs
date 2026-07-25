@@ -283,6 +283,58 @@ function buildColMap_(headerRow) {
   return map;
 }
 
+// Monta o texto da nota a partir de uma entrada do dicionário ({ desc, values? })
+function noteTextFromDoc_(doc) {
+  if (!doc || !doc.desc) return '';
+  return doc.values ? doc.desc + '\n\nValores possíveis: ' + doc.values : doc.desc;
+}
+
+// Aplica as notas explicativas nos cabeçalhos (dicionário de dados visível na planilha).
+// notesByIndex: { indiceColuna(0-based): 'texto da nota' }.
+// Idempotente: sobrescreve sempre com o texto atual do código, mas só REGRAVA quando o
+// texto mudou (getNotes é 1 leitura em lote; em regime estável não há nenhuma escrita).
+// Nota é recurso secundário: qualquer falha é engolida — nunca derruba doGet/doPost.
+function applyHeaderNotes_(sheet, notesByIndex) {
+  try {
+    var lastCol = sheet.getLastColumn();
+    if (!lastCol) return;
+    var current = sheet.getRange(1, 1, 1, lastCol).getNotes()[0];
+    Object.keys(notesByIndex).forEach(function (k) {
+      var i = Number(k);
+      if (!(i >= 0 && i < lastCol)) return;
+      var text = notesByIndex[k] || '';
+      if (!text || current[i] === text) return;
+      // try/catch por coluna: uma falha pontual não impede as demais notas
+      try { sheet.getRange(1, i + 1).setNote(text); } catch (e) {}
+    });
+  } catch (e) {}
+}
+
+// { indice: nota } da aba Estoque — colunas reconhecidas via buildColMap_ (1ª ocorrência;
+// duplicatas e colunas desconhecidas ficam sem nota, mesma regra do mapeamento).
+function estoqueNotesByIndex_(headerRow) {
+  var col = buildColMap_(headerRow);
+  var notes = {};
+  Object.keys(COLUMN_DOCS).forEach(function (key) {
+    if (col[key] !== undefined) notes[col[key]] = noteTextFromDoc_(COLUMN_DOCS[key]);
+  });
+  return notes;
+}
+
+// { indice: nota } da aba Consumo — casamento por rótulo normalizado (Consumo não usa aliases)
+function consumoNotesByIndex_(headerRow) {
+  var byNorm = {};
+  Object.keys(CONSUMO_DOCS).forEach(function (label) {
+    byNorm[norm_(label)] = noteTextFromDoc_(CONSUMO_DOCS[label]);
+  });
+  var notes = {};
+  headerRow.forEach(function (h, i) {
+    var text = byNorm[norm_(h)];
+    if (text && notes[i] === undefined) notes[i] = text;
+  });
+  return notes;
+}
+
 function jsonOut_(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
