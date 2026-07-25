@@ -965,6 +965,8 @@ function getConsumoSheet_() {
   }
   // (re)aplica os cabeçalhos padronizados — atualiza também abas já existentes
   sheet.getRange(1, 1, 1, CONSUMO_HEADERS.length).setValues([CONSUMO_HEADERS]);
+  // Dicionário de dados: nota explicativa em cada cabeçalho
+  applyHeaderNotes_(sheet, consumoNotesByIndex_(CONSUMO_HEADERS));
   return sheet;
 }
 
