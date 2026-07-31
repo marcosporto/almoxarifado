@@ -17,10 +17,16 @@
 var SHEET_NAME = 'Estoque';
 var IMAGE_FOLDER_NAME = 'Almoxarifado UDESC - Imagens';
 
-// ====== Tratamento de foto por IA (Gemini "Nano Banana") ======
+// ====== Tratamento de foto por IA (via OpenRouter) ======
 // A chave NÃO fica no código: cole em Configurações do projeto > Propriedades do script,
-// na chave GEMINI_API_KEY (assim ela nunca aparece no index.html, que é público).
-var GEMINI_MODEL = 'gemini-2.5-flash-image'; // modelo de imagem (image-out), nível gratuito
+// na chave OPENROUTER_API_KEY (assim ela nunca aparece no index.html, que é público).
+// Por que OpenRouter e não a API do Google direto: a chamada direta ao modelo de IMAGEM do
+// Gemini ficava presa na cota do nível gratuito (HTTP 429 "free_tier_requests, limit: 0")
+// mesmo com faturamento ativo e vinculado — bug conhecido do lado do Google, sem prazo de
+// correção. O OpenRouter chama o MESMO modelo por outro caminho, com cobrança própria.
+// (As palavras-chave por TEXTO seguem na API do Google direto: aquilo nunca falhou.)
+var OPENROUTER_IMAGE_URL = 'https://openrouter.ai/api/v1/images';
+var OPENROUTER_IMAGE_MODEL = 'google/gemini-2.5-flash-image';
 var PROMPT_TRATAMENTO = [
   'Re-crop and re-frame this product photo as a tight, zoomed-in close-up for an',
   'e-commerce / inventory catalog. ZOOM IN strongly so the product becomes large and',
@@ -672,48 +678,64 @@ function getImageFolder_() {
 }
 
 /**
- * Trata uma foto com a IA de imagem do Gemini (fundo branco, item centralizado, nítido,
+ * Trata uma foto com a IA de imagem, via OpenRouter (fundo branco, item centralizado, nítido,
  * 1:1 estilo catálogo). Recebe base64 (sem prefixo) + mime e devolve { data, mime } já
  * tratados. Devolve null em QUALQUER falha (sem chave, offline, erro da API, resposta sem
  * imagem) — quem chama deve então usar a foto original (rede de segurança).
  */
-function tratarImagemGemini_(base64, mime) {
-  try {
-    var key = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
-    if (!key) return null; // chave não configurada → mantém a original
+var IA_DEBUG_LAST_ERROR_ = null; // DIAGNÓSTICO TEMPORÁRIO — remover quando o tratamento estiver estável
 
-    var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
-      GEMINI_MODEL + ':generateContent?key=' + encodeURIComponent(key);
+function tratarImagemIA_(base64, mime) {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var key = props.getProperty('OPENROUTER_API_KEY');
+    if (!key) { IA_DEBUG_LAST_ERROR_ = 'sem OPENROUTER_API_KEY configurada'; return null; }
+
+    // Modelo trocável SEM reimplantar: basta editar a propriedade OPENROUTER_IMAGE_MODEL
+    // nas Propriedades do script (vazia = usa o padrão definido lá em cima).
+    var model = props.getProperty('OPENROUTER_IMAGE_MODEL') || OPENROUTER_IMAGE_MODEL;
+
+    // A imagem original entra como "referência" (image-to-image); o prompt cuida do resto.
     var payload = {
-      contents: [{
-        parts: [
-          { text: PROMPT_TRATAMENTO },
-          { inline_data: { mime_type: mime || 'image/jpeg', data: base64 } }
-        ]
+      model: model,
+      prompt: PROMPT_TRATAMENTO,
+      n: 1,
+      aspect_ratio: '1:1',
+      output_format: 'jpeg',
+      input_references: [{
+        type: 'image_url',
+        image_url: { url: 'data:' + (mime || 'image/jpeg') + ';base64,' + base64 }
       }]
     };
-    var resp = UrlFetchApp.fetch(url, {
+    var resp = UrlFetchApp.fetch(OPENROUTER_IMAGE_URL, {
       method: 'post',
       contentType: 'application/json',
+      headers: { Authorization: 'Bearer ' + key },
       payload: JSON.stringify(payload),
       muteHttpExceptions: true
     });
-    if (resp.getResponseCode() !== 200) return null;
+    if (resp.getResponseCode() !== 200) {
+      IA_DEBUG_LAST_ERROR_ = 'HTTP ' + resp.getResponseCode() + ' — ' + resp.getContentText().slice(0, 500);
+      Logger.log('tratarImagemIA_ FALHOU: ' + IA_DEBUG_LAST_ERROR_);
+      return null;
+    }
 
     var json = JSON.parse(resp.getContentText());
-    var parts = json && json.candidates && json.candidates[0] &&
-      json.candidates[0].content && json.candidates[0].content.parts;
-    if (!parts || !parts.length) return null;
-
-    for (var i = 0; i < parts.length; i++) {
-      // a resposta REST usa camelCase (inlineData); aceitamos snake_case por segurança
-      var inline = parts[i].inlineData || parts[i].inline_data;
-      if (inline && inline.data) {
-        return { data: inline.data, mime: inline.mimeType || inline.mime_type || 'image/png' };
-      }
+    var img = json && json.data && json.data[0];
+    if (!img || !img.b64_json) {
+      IA_DEBUG_LAST_ERROR_ = 'resposta sem imagem — ' + resp.getContentText().slice(0, 500);
+      Logger.log('tratarImagemIA_ FALHOU: ' + IA_DEBUG_LAST_ERROR_);
+      return null;
     }
-    return null; // resposta veio sem parte de imagem
+    return {
+      data: img.b64_json,
+      mime: img.media_type || 'image/jpeg',
+      model: model,
+      custoUSD: (json.usage && json.usage.cost) || 0
+    };
   } catch (e) {
+    IA_DEBUG_LAST_ERROR_ = 'exceção — ' + e;
+    Logger.log('tratarImagemIA_ FALHOU: ' + IA_DEBUG_LAST_ERROR_);
     return null; // qualquer exceção → usa a original
   }
 }
@@ -740,15 +762,21 @@ function uploadImages_(body) {
   var folder = getImageFolder_();
   var urls = [];
 
+  var debugIA = []; // DIAGNÓSTICO TEMPORÁRIO — remover junto com IA_DEBUG_LAST_ERROR_
+
   body.images.forEach(function (img, i) {
     var mime = img.mime || 'image/jpeg';
     var data = img.data;
 
     // Tenta tratar com a IA; em qualquer falha, mantém os bytes originais.
-    var tratada = tratarImagemGemini_(data, mime);
+    IA_DEBUG_LAST_ERROR_ = null;
+    var tratada = tratarImagemIA_(data, mime);
     if (tratada && tratada.data) {
       data = tratada.data;
       mime = tratada.mime || mime;
+      debugIA.push('OK ' + tratada.model + ' — US$ ' + tratada.custoUSD);
+    } else {
+      debugIA.push(IA_DEBUG_LAST_ERROR_ || 'falhou sem motivo capturado');
     }
 
     var ext = mime.indexOf('png') >= 0 ? 'png' : 'jpg';
@@ -778,7 +806,7 @@ function uploadImages_(body) {
   // Lembra o resultado desta etiqueta por 6h (cobre qualquer retentativa do app).
   if (cacheKey) cache.put(cacheKey, JSON.stringify(urls), 21600);
 
-  return { ok: true, codigo: String(body.codigo), urls: urls };
+  return { ok: true, codigo: String(body.codigo), urls: urls, _debugIA: debugIA };
 }
 
 /* ------------------------------------------------------------------ */
