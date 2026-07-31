@@ -15,6 +15,8 @@ um problema aparecer, ou uma ideia surgir, anote aqui (com data). É o que evita
 | — | Diálogos próprios no lugar de `alert/confirm/prompt` | Visual consistente e integração com o botão Voltar do Android |
 | 2026-06-25 | Adotar metodologia spec-driven (esta pasta `.specs/`) | Profissionalizar a manutenção e registrar decisões |
 | 2026-06-25 | Nova feature **Login com Google** (ver `../features/login-google/`) | Controlar acesso + registrar autoria sem perder o offline. Decisões: lista de e-mails autorizada, "logar uma vez e lembrar", protege o app inteiro, backend valida a identidade |
+| 2026-07-26 | Tratamento de foto por IA sai da API do Google e passa pelo **OpenRouter** | Bug do Google travava o modelo de imagem no nível gratuito (429, `limit: 0`) mesmo com faturamento ativo. Modelo de texto não é afetado e continua no Google |
+| 2026-07-26 | **Fidelidade ao item vira requisito duro** no tratamento de foto | A foto existe para identificar a peça no almoxarifado; item alterado é pior que foto feia. Reverte a decisão de 2026-06-27 que permitia alteração leve |
 
 > As linhas com "—" são decisões anteriores à adoção da metodologia; a data exata
 > não foi registrada. Daqui pra frente, sempre preencher a data.
@@ -127,6 +129,40 @@ um problema aparecer, ou uma ideia surgir, anote aqui (com data). É o que evita
   Decisões: geração 1x + menu manual (sem auto p/ itens novos); fuzzy (Est.2) e foto/OCR (Est.4)
   fora de escopo. 7 tasks (T1–T3 backend, T4–T5 frontend, T6–T7 publicar/verificar). **Próximo:**
   EXECUTE a partir da T1. Modelo de texto previsto: `gemini-2.5-flash-lite` (confirmar custo na T6).
+- **2026-07-26:** **tratamento de foto migrado para o OpenRouter** (só backend; app e planilha
+  não mudam). O que aconteceu, para não repetir a investigação:
+  - **Sintoma:** fotos voltavam sem tratamento nenhum, silenciosamente (o `catch` engolia tudo).
+  - **Diagnóstico:** o `Logger.log` do Apps Script demora demais a aparecer em execução de App
+    da Web. O que resolveu foi **devolver o erro no próprio JSON da resposta** (campo `_debugIA`)
+    e ler na aba Rede do navegador. **Lição:** para depurar `doPost` de App da Web, a resposta
+    HTTP é um canal muito melhor que o Registro de execução. (Atenção: a linha que aparece na
+    aba Rede é o `302` do `script.google.com`; a resposta de verdade está na requisição seguinte,
+    `script.googleusercontent.com/echo?...`.)
+  - **Causa raiz:** HTTP 429 `generate_content_free_tier_requests, limit: 0` no modelo de
+    **imagem**, mesmo com conta de faturamento ativa e vinculada. **Bug conhecido do Google**
+    (relatado no fórum oficial e no GitHub do SDK), que atinge só modelos de imagem — os de
+    texto funcionam com a mesma chave e projeto. Sem prazo de correção.
+  - **Hipóteses descartadas (horas perdidas, não repetir):** chave do projeto errado; cartão
+    vencido; conta de faturamento inativa; projeto sem billing vinculado; chave criada antes
+    de ativar o faturamento (gerar chave nova **não** resolveu). Corrigir tudo isso era
+    necessário mas **não suficiente** — o bug é do lado do Google.
+  - **Solução:** `POST https://openrouter.ai/api/v1/images` chamando o **mesmo modelo**
+    (`google/gemini-2.5-flash-image`), com billing próprio. Chave em `OPENROUTER_API_KEY`.
+    A `GEMINI_API_KEY` **continua necessária** para as palavras-chave por texto.
+  - **Ganho de flexibilidade:** modelo trocável pela propriedade `OPENROUTER_IMAGE_MODEL`
+    **sem reimplantar**, e o `_debugIA` devolve o **custo real em USD de cada foto** — dá para
+    comparar modelos com número na mão. O catálogo tem 38 modelos de imagem, mas só aparecem
+    com `GET /api/v1/models?output_modalities=image` (sem esse parâmetro a API mostra 11).
+- **2026-07-26:** ajuste fino do prompt de tratamento (2 commits). **Lições sobre prompt de
+  imagem:** (1) para conseguir sombra natural, descreva a **iluminação da cena**, não o efeito
+  — pedir "desenhe uma sombra" produziu uma mancha cinza deslocada; (2) **a ordem das
+  instruções importa muito**: com "ZOOM IN strongly / REQUIRED to enlarge and recompose" na
+  abertura e a fidelidade só na última linha, o modelo **regerava** o produto (uma caneta BIC
+  específica virava uma caneta BIC genérica). Reenquadrar como "PHOTO RETOUCHING task, NOT an
+  image generation task", pôr fidelidade como primeira regra e trocar o zoom agressivo por
+  "crop and scale the ORIGINAL pixels" atacou a causa. Preenchimento do quadro caiu de 90-95%
+  para ~85% — o "quase encostando nas bordas" era o que mais forçava recomposição do zero.
+  **Pendente:** o usuário ainda precisa republicar e refazer o teste da caneta BIC.
 - **2026-06-27:** logo (v32) — o usuário forneceu o **arquivo oficial da marca**
   (`vertical_negativo.svg`, versão branca). Substituiu a recriação da v31: `logo.svg` =
   logo oficial (transparente) usado no cabeçalho e no login; `icon.svg` = mesmo logo
