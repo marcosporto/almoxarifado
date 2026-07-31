@@ -36,10 +36,19 @@ var PROMPT_TRATAMENTO = [
   'with wide empty space.',
   'Remove the background and replace it with a pure-white background that fills the entire',
   'square frame edge to edge, with no border, frame, vignette or colored margin.',
-  'Improve lighting, color balance and maximize sharpness so every detail is clearly visible.',
+  'Light the product like a professional studio still life: one large, soft, diffused light',
+  'source placed above and slightly in front of the item, on a seamless white surface. That',
+  'lighting naturally produces a very faint contact shadow exactly where the base of the',
+  'product touches the surface — a narrow, soft-edged pool of very light grey that hugs the',
+  'bottom of the item and fades out smoothly within a short distance.',
+  'That shadow must be extremely subtle and almost white — it only grounds the object, it is',
+  'never a feature of the image. It must NOT be a dark or muddy grey blob, a smudge or smear,',
+  'a hard-edged shape, a long shadow cast off to one side, a shadow detached from the product,',
+  'or a mirror reflection.',
+  'Improve color balance and maximize sharpness so every detail is clearly visible.',
   'Keep the PRODUCT ITSELF faithful: do not change its shape, colors, proportions or any',
-  'text/labels — only change its size and position within the frame. Do not add, remove or',
-  'invent any objects.'
+  'text/labels — only change its size and position within the frame. Apart from that soft',
+  'shadow, do not add, remove or invent any objects.'
 ].join(' ');
 
 // ====== Palavras-chave por IA (TEXTO) ======
@@ -678,7 +687,7 @@ function getImageFolder_() {
 }
 
 /**
- * Trata uma foto com a IA de imagem, via OpenRouter (fundo branco, item centralizado, nítido,
+ * Trata uma foto com a IA de imagem, via OpenRouter (fundo branco, sombra de contato suave,
  * 1:1 estilo catálogo). Recebe base64 (sem prefixo) + mime e devolve { data, mime } já
  * tratados. Devolve null em QUALQUER falha (sem chave, offline, erro da API, resposta sem
  * imagem) — quem chama deve então usar a foto original (rede de segurança).
