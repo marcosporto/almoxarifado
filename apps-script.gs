@@ -27,13 +27,24 @@ var IMAGE_FOLDER_NAME = 'Almoxarifado UDESC - Imagens';
 // (As palavras-chave por TEXTO seguem na API do Google direto: aquilo nunca falhou.)
 var OPENROUTER_IMAGE_URL = 'https://openrouter.ai/api/v1/images';
 var OPENROUTER_IMAGE_MODEL = 'google/gemini-2.5-flash-image';
+// ORDEM IMPORTA: a fidelidade ao item vem PRIMEIRO e a tarefa é enquadrada como RETOQUE de
+// fotografia, não geração de imagem. Pedir "recomponha/amplie" logo de cara fazia o modelo
+// REDESENHAR o produto (ex.: virava uma caneta BIC genérica em vez da caneta fotografada).
+// Num almoxarifado a foto serve para IDENTIFICAR a peça: item errado é pior que foto feia.
 var PROMPT_TRATAMENTO = [
-  'Re-crop and re-frame this product photo as a tight, zoomed-in close-up for an',
-  'e-commerce / inventory catalog. ZOOM IN strongly so the product becomes large and',
-  'DOMINANT, nearly filling the square frame and almost touching all four edges, leaving',
-  'only a thin uniform white margin (the product must occupy about 90-95% of the frame).',
-  'It is REQUIRED to enlarge and recompose the product — do not keep it small or centered',
-  'with wide empty space.',
+  'This is a PHOTO RETOUCHING task on a real photograph, NOT an image generation task.',
+  'The item shown is a specific physical product in a warehouse inventory, and the photo',
+  'exists so a worker can identify that exact piece.',
+  'ABSOLUTE RULE, more important than anything else below: the product itself is untouchable.',
+  'Preserve the real photographed object exactly as it appears — its exact shape, silhouette,',
+  'proportions, colors, materials, texture, imperfections, scratches and signs of wear.',
+  'Preserve every brand name, logo, label, printed text, number and symbol exactly as',
+  'photographed: same wording, same lettering, same position, same size.',
+  'Never redraw, repaint, restyle, straighten, clean, repair, complete or beautify the product.',
+  'Never substitute it with a similar, generic, newer or idealized version of the same kind of',
+  'object. If a part of the item is hidden, cropped, dirty or out of focus, leave it exactly',
+  'that way — never invent or reconstruct what is not visible.',
+  'You may ONLY change what surrounds the product, as follows.',
   'Remove the background and replace it with a pure-white background that fills the entire',
   'square frame edge to edge, with no border, frame, vignette or colored margin.',
   'Light the product like a professional studio still life: one large, soft, diffused light',
@@ -45,10 +56,12 @@ var PROMPT_TRATAMENTO = [
   'never a feature of the image. It must NOT be a dark or muddy grey blob, a smudge or smear,',
   'a hard-edged shape, a long shadow cast off to one side, a shadow detached from the product,',
   'or a mirror reflection.',
-  'Improve color balance and maximize sharpness so every detail is clearly visible.',
-  'Keep the PRODUCT ITSELF faithful: do not change its shape, colors, proportions or any',
-  'text/labels — only change its size and position within the frame. Apart from that soft',
-  'shadow, do not add, remove or invent any objects.'
+  'Finally, crop and scale the ORIGINAL pixels of the photographed product so it is centered',
+  'and occupies about 85% of the square frame, leaving a thin white margin around it and room',
+  'for the contact shadow underneath. This is strictly a crop-and-resize operation: making the',
+  'product bigger must NEVER mean redrawing it.',
+  'Adjust only global color balance and sharpness, and only enough to make the real details',
+  'easier to read. Apart from the soft contact shadow, do not add, remove or invent anything.'
 ].join(' ');
 
 // ====== Palavras-chave por IA (TEXTO) ======
