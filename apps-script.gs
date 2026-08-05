@@ -17,55 +17,23 @@
 var SHEET_NAME = 'Estoque';
 var IMAGE_FOLDER_NAME = 'Almoxarifado UDESC - Imagens';
 
-// ====== Tratamento de foto por IA (via OpenRouter) ======
-// A chave NÃO fica no código: cole em Configurações do projeto > Propriedades do script,
-// na chave OPENROUTER_API_KEY (assim ela nunca aparece no index.html, que é público).
-// Por que OpenRouter e não a API do Google direto: a chamada direta ao modelo de IMAGEM do
-// Gemini ficava presa na cota do nível gratuito (HTTP 429 "free_tier_requests, limit: 0")
-// mesmo com faturamento ativo e vinculado — bug conhecido do lado do Google, sem prazo de
-// correção. O OpenRouter chama o MESMO modelo por outro caminho, com cobrança própria.
-// (As palavras-chave por TEXTO seguem na API do Google direto: aquilo nunca falhou.)
-var OPENROUTER_IMAGE_URL = 'https://openrouter.ai/api/v1/images';
-var OPENROUTER_IMAGE_MODEL = 'google/gemini-2.5-flash-image';
-// ORDEM IMPORTA: a fidelidade ao item vem PRIMEIRO e a tarefa é enquadrada como RETOQUE de
-// fotografia, não geração de imagem. Pedir "recomponha/amplie" logo de cara fazia o modelo
-// REDESENHAR o produto (ex.: virava uma caneta BIC genérica em vez da caneta fotografada).
-// Num almoxarifado a foto serve para IDENTIFICAR a peça: item errado é pior que foto feia.
-var PROMPT_TRATAMENTO = [
-  'This is a PHOTO RETOUCHING task on a real photograph, NOT an image generation task.',
-  'The item shown is a specific physical product in a warehouse inventory, and the photo',
-  'exists so a worker can identify that exact piece.',
-  'ABSOLUTE RULE, more important than anything else below: the product itself is untouchable.',
-  'Preserve the real photographed object exactly as it appears — its exact shape, silhouette,',
-  'proportions, colors, materials, texture, imperfections, scratches and signs of wear.',
-  'Preserve every brand name, logo, label, printed text, number and symbol exactly as',
-  'photographed: same wording, same lettering, same position, same size.',
-  'Never redraw, repaint, restyle, straighten, clean, repair, complete or beautify the product.',
-  'Never substitute it with a similar, generic, newer or idealized version of the same kind of',
-  'object. If a part of the item is hidden, cropped, dirty or out of focus, leave it exactly',
-  'that way — never invent or reconstruct what is not visible.',
-  'You may ONLY change what surrounds the product, as follows.',
-  'Remove the background and replace it with a pure-white background that fills the entire',
-  'square frame edge to edge, with no border, frame, vignette or colored margin.',
-  'Light the product like a professional studio still life: one large, soft, diffused light',
-  'source placed above and slightly in front of the item, on a seamless white surface. That',
-  'lighting naturally produces a very faint contact shadow exactly where the base of the',
-  'product touches the surface — a narrow, soft-edged pool of very light grey that hugs the',
-  'bottom of the item and fades out smoothly within a short distance.',
-  'That shadow must be extremely subtle and almost white — it only grounds the object, it is',
-  'never a feature of the image. It must NOT be a dark or muddy grey blob, a smudge or smear,',
-  'a hard-edged shape, a long shadow cast off to one side, a shadow detached from the product,',
-  'or a mirror reflection.',
-  'Finally, crop and scale the ORIGINAL pixels of the photographed product so it is centered',
-  'and occupies about 85% of the square frame, leaving a thin white margin around it and room',
-  'for the contact shadow underneath. This is strictly a crop-and-resize operation: making the',
-  'product bigger must NEVER mean redrawing it.',
-  'Adjust only global color balance and sharpness, and only enough to make the real details',
-  'easier to read. Apart from the soft contact shadow, do not add, remove or invent anything.'
-].join(' ');
+// ====== Fotos ======
+// A foto é salva no Drive EXATAMENTE como o app enviou — sem tratamento por IA.
+// Houve um tratamento por IA (fundo branco estilo catálogo) entre 2026-06-27 e 2026-07-26;
+// foi removido porque os modelos de imagem são GERADORES: eles não editavam a foto, eles
+// sintetizavam uma nova, e acabavam trocando o produto por uma versão genérica do mesmo tipo
+// (uma caneta BIC específica virava "uma caneta BIC qualquer"). Como a foto existe para
+// IDENTIFICAR a peça, isso é um defeito grave — nenhum ajuste de prompt resolveu.
+// Se um dia isso voltar, o caminho certo é remoção de fundo por SEGMENTAÇÃO (que recorta o
+// contorno e preserva os pixels do produto), não geração de imagem. Ver
+// `.specs/features/tratamento-foto-ia/`.
+// O app já envia a foto quadrada (1:1, ~1024px) desde a v33 — ver `compress()` no index.html.
 
 // ====== Palavras-chave por IA (TEXTO) ======
-// Modelo de TEXTO (muito mais barato que o de imagem); reusa a mesma GEMINI_API_KEY.
+// Chave em Configurações do projeto > Propriedades do script, na chave GEMINI_API_KEY
+// (assim ela nunca aparece no index.html, que é público). Esta é a ÚNICA IA que restou no
+// backend, e ela sempre funcionou bem — modelos de texto não sofrem do problema de fidelidade
+// que derrubou o tratamento de foto.
 var GEMINI_TEXT_MODEL = 'gemini-2.5-flash-lite';
 // Prompt "ancorado": só expande o que está na descrição, nunca inventa dados.
 var PROMPT_KW = [
@@ -700,80 +668,15 @@ function getImageFolder_() {
 }
 
 /**
- * Trata uma foto com a IA de imagem, via OpenRouter (fundo branco, sombra de contato suave,
- * 1:1 estilo catálogo). Recebe base64 (sem prefixo) + mime e devolve { data, mime } já
- * tratados. Devolve null em QUALQUER falha (sem chave, offline, erro da API, resposta sem
- * imagem) — quem chama deve então usar a foto original (rede de segurança).
- */
-var IA_DEBUG_LAST_ERROR_ = null; // DIAGNÓSTICO TEMPORÁRIO — remover quando o tratamento estiver estável
-
-function tratarImagemIA_(base64, mime) {
-  try {
-    var props = PropertiesService.getScriptProperties();
-    var key = props.getProperty('OPENROUTER_API_KEY');
-    if (!key) { IA_DEBUG_LAST_ERROR_ = 'sem OPENROUTER_API_KEY configurada'; return null; }
-
-    // Modelo trocável SEM reimplantar: basta editar a propriedade OPENROUTER_IMAGE_MODEL
-    // nas Propriedades do script (vazia = usa o padrão definido lá em cima).
-    var model = props.getProperty('OPENROUTER_IMAGE_MODEL') || OPENROUTER_IMAGE_MODEL;
-
-    // A imagem original entra como "referência" (image-to-image); o prompt cuida do resto.
-    var payload = {
-      model: model,
-      prompt: PROMPT_TRATAMENTO,
-      n: 1,
-      aspect_ratio: '1:1',
-      output_format: 'jpeg',
-      input_references: [{
-        type: 'image_url',
-        image_url: { url: 'data:' + (mime || 'image/jpeg') + ';base64,' + base64 }
-      }]
-    };
-    var resp = UrlFetchApp.fetch(OPENROUTER_IMAGE_URL, {
-      method: 'post',
-      contentType: 'application/json',
-      headers: { Authorization: 'Bearer ' + key },
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true
-    });
-    if (resp.getResponseCode() !== 200) {
-      IA_DEBUG_LAST_ERROR_ = 'HTTP ' + resp.getResponseCode() + ' — ' + resp.getContentText().slice(0, 500);
-      Logger.log('tratarImagemIA_ FALHOU: ' + IA_DEBUG_LAST_ERROR_);
-      return null;
-    }
-
-    var json = JSON.parse(resp.getContentText());
-    var img = json && json.data && json.data[0];
-    if (!img || !img.b64_json) {
-      IA_DEBUG_LAST_ERROR_ = 'resposta sem imagem — ' + resp.getContentText().slice(0, 500);
-      Logger.log('tratarImagemIA_ FALHOU: ' + IA_DEBUG_LAST_ERROR_);
-      return null;
-    }
-    return {
-      data: img.b64_json,
-      mime: img.media_type || 'image/jpeg',
-      model: model,
-      custoUSD: (json.usage && json.usage.cost) || 0
-    };
-  } catch (e) {
-    IA_DEBUG_LAST_ERROR_ = 'exceção — ' + e;
-    Logger.log('tratarImagemIA_ FALHOU: ' + IA_DEBUG_LAST_ERROR_);
-    return null; // qualquer exceção → usa a original
-  }
-}
-
-/**
- * Recebe imagens em Base64 e salva no Drive, anexando as URLs ao item.
- * Cada imagem é tratada pela IA do Gemini antes de salvar; se o tratamento falhar,
- * salva a foto original (nunca deixa de salvar). Só a versão final fica no Drive.
+ * Recebe imagens em Base64 e salva no Drive EXATAMENTE como vieram, anexando as URLs ao item.
  * body: { codigo, images: [ { name, mime, data(base64 sem prefixo) } ] }
  */
 function uploadImages_(body) {
   if (!body.images || !body.images.length) return { ok: false, error: 'Nenhuma imagem recebida.' };
 
   // Idempotência: se este mesmo envio (mesma "etiqueta") já foi processado, devolve as
-  // URLs guardadas SEM tratar de novo — evita foto duplicada e gasto de crédito à toa
-  // quando o app reenvia por ter perdido a resposta.
+  // URLs guardadas SEM salvar de novo — evita foto duplicada quando o app reenvia por ter
+  // perdido a resposta numa rede móvel instável.
   var cache = CacheService.getScriptCache();
   var cacheKey = body.opKey ? ('img_' + body.opKey) : null;
   if (cacheKey) {
@@ -784,22 +687,9 @@ function uploadImages_(body) {
   var folder = getImageFolder_();
   var urls = [];
 
-  var debugIA = []; // DIAGNÓSTICO TEMPORÁRIO — remover junto com IA_DEBUG_LAST_ERROR_
-
   body.images.forEach(function (img, i) {
     var mime = img.mime || 'image/jpeg';
     var data = img.data;
-
-    // Tenta tratar com a IA; em qualquer falha, mantém os bytes originais.
-    IA_DEBUG_LAST_ERROR_ = null;
-    var tratada = tratarImagemIA_(data, mime);
-    if (tratada && tratada.data) {
-      data = tratada.data;
-      mime = tratada.mime || mime;
-      debugIA.push('OK ' + tratada.model + ' — US$ ' + tratada.custoUSD);
-    } else {
-      debugIA.push(IA_DEBUG_LAST_ERROR_ || 'falhou sem motivo capturado');
-    }
 
     var ext = mime.indexOf('png') >= 0 ? 'png' : 'jpg';
     var name = (img.name || (body.codigo + '_' + Date.now() + '_' + i)) + '.' + ext;
@@ -828,7 +718,7 @@ function uploadImages_(body) {
   // Lembra o resultado desta etiqueta por 6h (cobre qualquer retentativa do app).
   if (cacheKey) cache.put(cacheKey, JSON.stringify(urls), 21600);
 
-  return { ok: true, codigo: String(body.codigo), urls: urls, _debugIA: debugIA };
+  return { ok: true, codigo: String(body.codigo), urls: urls };
 }
 
 /* ------------------------------------------------------------------ */
