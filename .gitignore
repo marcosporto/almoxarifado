@@ -8,3 +8,6 @@ Desktop.ini
 .vscode/
 *.swp
 *.tmp
+
+# Claude Code — preferências pessoais desta máquina (não compartilhar)
+.claude/settings.local.json
