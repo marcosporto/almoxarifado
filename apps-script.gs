@@ -321,6 +321,46 @@ function estoqueNotesByIndex_(headerRow) {
   return notes;
 }
 
+// Textos da aba Importar. Chave = rótulo aceito no cabeçalho colado (ver buildImportColMap_).
+// Colunas não listadas aqui são ignoradas pela mesclagem — a nota diz isso explicitamente.
+var IMPORTAR_DOCS = {
+  'Código': {
+    desc: 'OBRIGATÓRIA. Código Interno do item no sistema oficial — é por ele que a mesclagem ' +
+      'casa cada linha com a aba Estoque (zeros à esquerda são ignorados: 018937001 casa com ' +
+      '18937001). Sem esta coluna a mesclagem se recusa a rodar. ' +
+      'Aceita também o rótulo "Código Interno".'
+  },
+  'Quantidade': {
+    desc: 'OBRIGATÓRIA. Quantidade do item segundo o sistema oficial; vai para a coluna ' +
+      '"Estoque Sistema" da aba Estoque. Aceita número no formato brasileiro ("1.234,00"). ' +
+      'Sem esta coluna a mesclagem se recusa a rodar. Aceita também o rótulo "Estoque Sistema".'
+  },
+  'Descrição': {
+    desc: 'Opcional. Atualiza a Descrição do item na aba Estoque. Se vier vazia, a descrição ' +
+      'que já estava lá é preservada.'
+  },
+  'Unidade de Distribuição': {
+    desc: 'Opcional. Atualiza a Unidade do item na aba Estoque. Se vier vazia, a que já ' +
+      'estava lá é preservada. Aceita também o rótulo "Unidade".'
+  }
+};
+
+// { indice: nota } da aba Importar — mesmo casamento de rótulos usado por buildImportColMap_.
+function importarNotesByIndex_(headerRow) {
+  var impCol = buildImportColMap_(headerRow);
+  var porChave = {
+    codigo: IMPORTAR_DOCS['Código'],
+    estoqueSistema: IMPORTAR_DOCS['Quantidade'],
+    descricao: IMPORTAR_DOCS['Descrição'],
+    unidade: IMPORTAR_DOCS['Unidade de Distribuição']
+  };
+  var notes = {};
+  Object.keys(porChave).forEach(function (k) {
+    if (impCol[k] !== undefined) notes[impCol[k]] = noteTextFromDoc_(porChave[k]);
+  });
+  return notes;
+}
+
 // { indice: nota } da aba Consumo — casamento por rótulo normalizado (Consumo não usa aliases)
 function consumoNotesByIndex_(headerRow) {
   var byNorm = {};
@@ -996,6 +1036,15 @@ function prepararImportar() {
   ss.setActiveSheet(sh);
   SpreadsheetApp.getUi().alert('Aba "Importar" pronta',
     'Cole aqui a tabela copiada do sistema — COM a linha de títulos — a partir da célula A1.\n\n' +
+    'COLUNAS OBRIGATÓRIAS (reconhecidas pelo nome, em qualquer ordem):\n' +
+    '  • "Código" (ou "Código Interno")\n' +
+    '  • "Quantidade" (ou "Estoque Sistema")\n' +
+    'Opcionais: "Descrição" e "Unidade de Distribuição".\n' +
+    'Qualquer outra coluna é ignorada.\n\n' +
+    '⚠️ COLE A LISTA COMPLETA DO SISTEMA, não um filtro ou parte dela:\n' +
+    'todo item da aba Estoque que NÃO estiver aqui será zerado (Estoque Sistema = 0) e ' +
+    'marcado como "Sem estoque". Fotos, localização e o resto do enriquecimento são ' +
+    'preservados — mas a situação muda.\n\n' +
     'Depois use o menu: 🔄 Almoxarifado → 2) Atualizar estoque.',
     SpreadsheetApp.getUi().ButtonSet.OK);
 }
@@ -1050,6 +1099,10 @@ function atualizarEstoque_() {
   var impCol = buildImportColMap_(impVals[0]);
   if (impCol.codigo === undefined || impCol.estoqueSistema === undefined)
     return { ok: false, error: 'Não achei as colunas "Código" e "Quantidade" no cabeçalho da aba "' + IMPORTAR_SHEET + '". Cole a tabela COM a linha de títulos.' };
+
+  // Documenta os cabeçalhos reconhecidos da Importar (colar por cima apaga as notas; a
+  // próxima mesclagem reaplica). Colunas não reconhecidas ficam sem nota, de propósito.
+  applyHeaderNotes_(imp, importarNotesByIndex_(impVals[0]));
 
   var sheet = getSheet_();                 // garante a coluna "Situação"
   var data = sheet.getDataRange().getValues();

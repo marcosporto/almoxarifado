@@ -52,4 +52,56 @@ Colunas **posicionais** (sem sistema de aliases) — a ordem é fixa, definida e
 | Aba | Para quê |
 |---|---|
 | `Autorizados` | Lista de e-mails com permissão de usar o app (feature Login com Google). |
-| `Importar` | Área de trabalho do menu "Atualizar estoque": cole aqui a cópia do sistema oficial antes de rodar a mesclagem. Conteúdo descartável. |
+| `Importar` | Área de trabalho do menu "Atualizar estoque" — ver a seção abaixo. Conteúdo descartável. |
+
+---
+
+# Aba `Importar` — o que acontece ao colar dados
+
+**Colar dados na aba não faz nada sozinho.** A `Importar` é só uma área de estacionamento; o
+app no celular nem a lê (ele lê a `Estoque`). Nada muda até você acionar o menu
+**🔄 Almoxarifado → 2) Atualizar estoque (mesclar)**.
+
+## Colunas lidas
+
+Reconhecidas pelo **nome no cabeçalho**, em qualquer ordem. Qualquer outra coluna colada é
+**ignorada** — não vai para lugar nenhum.
+
+| Cabeçalho aceito | Obrigatória? | O que faz |
+|---|---|---|
+| `Código` ou `Código Interno` | **sim** | Chave do casamento com a aba Estoque |
+| `Quantidade` ou `Estoque Sistema` | **sim** | Vira a coluna `Estoque Sistema` |
+| `Descrição` | não | Atualiza a `Descrição`; se vazia, preserva a existente |
+| `Unidade de Distribuição` ou `Unidade` | não | Atualiza a `Unidade`; se vazia, preserva a existente |
+
+Faltando uma das obrigatórias, a mesclagem **se recusa a rodar** e avisa — não faz nada pela metade.
+
+## O que a mesclagem faz
+
+O casamento é por Código Interno e **ignora zeros à esquerda** (`018937001` casa com `18937001`).
+
+| Situação | O que acontece |
+|---|---|
+| Código **já existe** na Estoque | Atualiza Descrição, Unidade e Estoque Sistema; limpa a `Situação`; recalcula a `Diferença` (só se o item já tinha `Estoque Físico` conferido). Todo o enriquecimento — fotos, localização, palavras-chave, validade, estoque físico — fica **intacto**. |
+| Código **novo** | Cria linha nova com esses 4 campos e `Inventariado = "Não"`. |
+| Item da Estoque que **não veio** na Importar | `Estoque Sistema = 0` e `Situação = "Sem estoque"`. |
+
+Ao final, um resumo mostra quantos itens foram atualizados, criados e marcados "Sem estoque".
+
+## ⚠️ Cole sempre a lista COMPLETA
+
+A última linha da tabela acima é a que mais causa susto: **todo item do Estoque que não estiver
+na Importar é zerado e marcado "Sem estoque"**. É proposital — é assim que o sistema detecta
+itens que saíram do catálogo oficial.
+
+Consequência prática: se você colar uma lista **parcial** (um filtro, só um setor, só uma
+página do sistema), todo o resto do almoxarifado é marcado como sem estoque. Nada é apagado —
+fotos, localização e o resto do enriquecimento continuam lá — mas `Situação` e `Estoque
+Sistema` de tudo que ficou de fora mudam, e o app passa a mostrar isso.
+
+No app, o efeito só aparece na próxima sincronização.
+
+> Estas mesmas explicações estão como **notas nos cabeçalhos** da aba `Importar` (passe o mouse).
+> Elas são aplicadas quando a mesclagem roda; colar dados por cima apaga as notas, e a mesclagem
+> seguinte as reaplica. As instruções completas também aparecem no aviso do menu
+> **1) Preparar aba "Importar"**.
