@@ -17,6 +17,7 @@ um problema aparecer, ou uma ideia surgir, anote aqui (com data). É o que evita
 | 2026-06-25 | Nova feature **Login com Google** (ver `../features/login-google/`) | Controlar acesso + registrar autoria sem perder o offline. Decisões: lista de e-mails autorizada, "logar uma vez e lembrar", protege o app inteiro, backend valida a identidade |
 | 2026-07-26 | Tratamento de foto por IA sai da API do Google e passa pelo **OpenRouter** | Bug do Google travava o modelo de imagem no nível gratuito (429, `limit: 0`) mesmo com faturamento ativo. Modelo de texto não é afetado e continua no Google |
 | 2026-07-26 | **Fidelidade ao item vira requisito duro** no tratamento de foto | A foto existe para identificar a peça no almoxarifado; item alterado é pior que foto feia. Reverte a decisão de 2026-06-27 que permitia alteração leve |
+| 2026-07-26 | **Tratamento de foto por IA REMOVIDO** — vale só a foto original | Modelos de imagem são geradores, não editores: trocavam o produto por outro parecido. Dois ajustes de prompt não resolveram; a causa é da ferramenta, não do texto |
 
 > As linhas com "—" são decisões anteriores à adoção da metodologia; a data exata
 > não foi registrada. Daqui pra frente, sempre preencher a data.
@@ -162,7 +163,25 @@ um problema aparecer, ou uma ideia surgir, anote aqui (com data). É o que evita
   image generation task", pôr fidelidade como primeira regra e trocar o zoom agressivo por
   "crop and scale the ORIGINAL pixels" atacou a causa. Preenchimento do quadro caiu de 90-95%
   para ~85% — o "quase encostando nas bordas" era o que mais forçava recomposição do zero.
-  **Pendente:** o usuário ainda precisa republicar e refazer o teste da caneta BIC.
+- **2026-07-26:** ❌ **tratamento de foto por IA REMOVIDO.** O teste da caneta BIC depois do
+  ajuste de fidelidade **falhou de novo**: uma BIC Cristal (corpo liso, sem borracha) voltou
+  como outro modelo, com empunhadura de borracha e clipe diferente. O usuário decidiu ficar só
+  com a foto original. `apps-script.gs` perdeu 129 linhas.
+  - **Lição principal, que vale para o projeto todo:** modelo de imagem **gera**, não **edita**.
+    Ele sintetiza uma imagem nova inspirada na sua, então pedir "não altere o produto" é lutar
+    contra o funcionamento da ferramenta. Para qualquer tarefa que exija fidelidade a pixels
+    (foto que serve para IDENTIFICAR algo), a ferramenta certa é **segmentação/remoção de
+    fundo** (Photoroom, remove.bg, BiRefNet), que recorta o contorno e preserva o original.
+    Nenhuma dessas está no OpenRouter.
+  - **Não vale reabrir por troca de modelo:** os 38 modelos de imagem do OpenRouter são todos
+    generativos — inclusive os "Utility" da Recraft, que o catálogo descreve como
+    *"general-purpose image generation model"*. Mais fiel ≠ fiel.
+  - **Erro meu de método, para não repetir:** insisti em duas rodadas de prompt antes de
+    questionar se a ferramenta era a certa. Quando o defeito é "a IA inventa", o próximo passo
+    deve ser trocar a **classe de ferramenta**, não reescrever o prompt.
+  - **Mantido:** foto quadrada no app (`compress()`, v33), idempotência do upload (`opKey`),
+    palavras-chave por IA e a `GEMINI_API_KEY`. **Sem uso agora:** `OPENROUTER_API_KEY` (pode
+    apagar sem pressa).
 - **2026-06-27:** logo (v32) — o usuário forneceu o **arquivo oficial da marca**
   (`vertical_negativo.svg`, versão branca). Substituiu a recriação da v31: `logo.svg` =
   logo oficial (transparente) usado no cabeçalho e no login; `icon.svg` = mesmo logo

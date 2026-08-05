@@ -62,11 +62,34 @@
 - **Commits:** `feat(prompt): sombra de contato suave nas fotos tratadas`,
   `fix(prompt): prioriza fidelidade ao item fotografado`
 
-## Ideias adiadas (não feitas)
-- **Escolha de modelo por custo/qualidade:** o catálogo de imagem do OpenRouter tem 38 modelos
-  (`GET /api/v1/models?output_modalities=image` — o parâmetro é obrigatório, sem ele só
-  aparecem 11). Há opções ~9× mais baratas que o padrão atual e outras ~4× mais caras e mais
-  fiéis (`google/gemini-3-pro-image`). O campo `_debugIA` já devolve o custo real por foto
-  para comparação. Usuário decidiu manter o modelo inicial por ora e avaliar com calma.
-- **Remover os diagnósticos temporários** (`IA_DEBUG_LAST_ERROR_`, `_debugIA`, `Logger.log`)
-  quando o tratamento estiver estável e o modelo definitivo escolhido.
+## T6 — REMOVER o tratamento por IA  (2026-07-26)  ❌ feature encerrada
+- **Motivo:** a T5 não resolveu. O modelo continuou trocando o produto — uma BIC Cristal
+  voltou como outro modelo de caneta, com empunhadura de borracha. A causa é estrutural:
+  modelos de imagem são **geradores**, não editores. Ver "Por que foi removida" na `spec.md`.
+- **Decisão do usuário:** abrir mão da estética e salvar só a foto original.
+- **Onde:** `apps-script.gs` — removidos `tratarImagemIA_`, `PROMPT_TRATAMENTO`,
+  `OPENROUTER_IMAGE_URL`, `OPENROUTER_IMAGE_MODEL`, `IA_DEBUG_LAST_ERROR_`, `_debugIA` e a
+  chamada em `uploadImages_` (−129 linhas, +19).
+- **Mantido de propósito:**
+  - **Idempotência** (`opKey` + cache 6h). Nasceu por causa da lentidão da IA, mas segue útil:
+    em rede móvel instável a resposta pode se perder e o app reenviar → foto duplicada.
+  - **Palavras-chave por IA** e a `GEMINI_API_KEY` (modelo de TEXTO, sem esse problema).
+  - **`compress()` no frontend** — a foto continua saindo quadrada (R1/R2).
+  - Um comentário no lugar do código removido explicando o porquê e apontando a segmentação
+    como caminho certo, para ninguém reintroduzir o mesmo erro.
+- **Verify:** `node --check apps-script.gs`; grep confirmando zero referências órfãs.
+- **Commit:** `revert(api): remove o tratamento de foto por IA`
+
+## Ideias descartadas (com o motivo)
+- **Escolher outro modelo no OpenRouter:** não resolve. Os 38 modelos de imagem do catálogo
+  (`GET /api/v1/models?output_modalities=image` — sem esse parâmetro a API mostra só 11) são
+  todos generativos, inclusive os "Utility" da Recraft, que o próprio catálogo descreve como
+  *"general-purpose image generation model"*. Havia opções ~9× mais baratas e outras ~4× mais
+  caras e provavelmente mais fiéis (`google/gemini-3-pro-image`), mas a classe do problema é
+  a mesma — mais fiel não é o mesmo que fiel.
+- **Continuar iterando o prompt:** duas rodadas (T5) atacaram a causa certa e ainda assim
+  falhou. Não é problema de redação.
+- **API de segmentação** (Photoroom, remove.bg, BiRefNet): tecnicamente é a solução correta —
+  preserva os pixels do produto porque não desenha nada. **Não testada**; exigiria mais uma
+  conta e chave, e o usuário decidiu não investir mais nisso agora. É por onde começar se um
+  dia a feature voltar.
