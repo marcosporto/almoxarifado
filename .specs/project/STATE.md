@@ -18,6 +18,7 @@ um problema aparecer, ou uma ideia surgir, anote aqui (com data). É o que evita
 | 2026-07-26 | Tratamento de foto por IA sai da API do Google e passa pelo **OpenRouter** | Bug do Google travava o modelo de imagem no nível gratuito (429, `limit: 0`) mesmo com faturamento ativo. Modelo de texto não é afetado e continua no Google |
 | 2026-07-26 | **Fidelidade ao item vira requisito duro** no tratamento de foto | A foto existe para identificar a peça no almoxarifado; item alterado é pior que foto feia. Reverte a decisão de 2026-06-27 que permitia alteração leve |
 | 2026-07-26 | **Tratamento de foto por IA REMOVIDO** — vale só a foto original | Modelos de imagem são geradores, não editores: trocavam o produto por outro parecido. Dois ajustes de prompt não resolveram; a causa é da ferramenta, não do texto |
+| 2026-07-26 | Tratamento **volta como opcional**, desligado por padrão (`TRATAR_FOTO=sim`) | Usuário quis manter a possibilidade de usar, ciente do risco. Opt-in explícito preserva o padrão seguro (foto original) para quem não configurar nada |
 
 > As linhas com "—" são decisões anteriores à adoção da metodologia; a data exata
 > não foi registrada. Daqui pra frente, sempre preencher a data.
@@ -180,8 +181,21 @@ um problema aparecer, ou uma ideia surgir, anote aqui (com data). É o que evita
     questionar se a ferramenta era a certa. Quando o defeito é "a IA inventa", o próximo passo
     deve ser trocar a **classe de ferramenta**, não reescrever o prompt.
   - **Mantido:** foto quadrada no app (`compress()`, v33), idempotência do upload (`opKey`),
-    palavras-chave por IA e a `GEMINI_API_KEY`. **Sem uso agora:** `OPENROUTER_API_KEY` (pode
-    apagar sem pressa).
+    palavras-chave por IA e a `GEMINI_API_KEY`.
+- **2026-07-26 (mesmo dia):** ↩️ **tratamento restaurado como OPCIONAL**, a pedido do usuário,
+  que quis manter a possibilidade de usar e avaliar caso a caso. Não é volta atrás na lição
+  acima — o defeito continua existindo e está documentado; o que mudou é quem decide correr o
+  risco.
+  - **Desenho:** opt-in explícito pela propriedade `TRATAR_FOTO = sim`. Sem ela, a chamada nem
+    é tentada e vale a foto original. Ligar/desligar **não exige nova implantação**.
+  - **Por que opt-in e não sempre ligado:** o padrão de um sistema deve ser o comportamento
+    seguro. Quem não configurar nada nunca terá foto alterada; quem ligar sabe o que está
+    fazendo. Também permite desligar na hora se aparecer um caso ruim em produção.
+  - `_debugIA` deixou de ser andaime temporário e virou parte do desenho: mostra o custo por
+    foto e o motivo de cada queda para a original (inclusive `desligado`). Por isso
+    `IA_DEBUG_LAST_ERROR_` virou `IA_ULTIMO_ERRO_`.
+  - **`OPENROUTER_API_KEY` volta a ser necessária** para quem ligar (antes eu havia dito que
+    podia apagar).
 - **2026-06-27:** logo (v32) — o usuário forneceu o **arquivo oficial da marca**
   (`vertical_negativo.svg`, versão branca). Substituiu a recriação da v31: `logo.svg` =
   logo oficial (transparente) usado no cabeçalho e no login; `icon.svg` = mesmo logo

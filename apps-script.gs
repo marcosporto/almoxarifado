@@ -17,23 +17,73 @@
 var SHEET_NAME = 'Estoque';
 var IMAGE_FOLDER_NAME = 'Almoxarifado UDESC - Imagens';
 
-// ====== Fotos ======
-// A foto é salva no Drive EXATAMENTE como o app enviou — sem tratamento por IA.
-// Houve um tratamento por IA (fundo branco estilo catálogo) entre 2026-06-27 e 2026-07-26;
-// foi removido porque os modelos de imagem são GERADORES: eles não editavam a foto, eles
-// sintetizavam uma nova, e acabavam trocando o produto por uma versão genérica do mesmo tipo
-// (uma caneta BIC específica virava "uma caneta BIC qualquer"). Como a foto existe para
-// IDENTIFICAR a peça, isso é um defeito grave — nenhum ajuste de prompt resolveu.
-// Se um dia isso voltar, o caminho certo é remoção de fundo por SEGMENTAÇÃO (que recorta o
-// contorno e preserva os pixels do produto), não geração de imagem. Ver
-// `.specs/features/tratamento-foto-ia/`.
+// ====== Tratamento de foto por IA (via OpenRouter) — OPCIONAL, DESLIGADO por padrão ======
+//
+// ⚠️ LEIA ANTES DE LIGAR: modelos de imagem são GERADORES, não editores. Eles não editam a
+// foto recebida — sintetizam uma nova inspirada nela — e por isso PODEM TROCAR O PRODUTO por
+// uma versão parecida (uma caneta BIC Cristal específica voltou como outro modelo de caneta,
+// com empunhadura de borracha). Como a foto serve para IDENTIFICAR a peça no almoxarifado,
+// isso é um risco real, não um detalhe estético. Duas rodadas de ajuste de prompt não
+// resolveram — a causa é a ferramenta, não o texto. Detalhes e alternativas (segmentação:
+// Photoroom, remove.bg, BiRefNet): `.specs/features/tratamento-foto-ia/`.
+//
+// COMO LIGAR (Configurações do projeto > Propriedades do script):
+//   TRATAR_FOTO         = sim                              (sem isso, nada é tratado)
+//   OPENROUTER_API_KEY  = <sua chave do OpenRouter>
+//   OPENROUTER_IMAGE_MODEL = <opcional; troca o modelo sem reimplantar>
+// Para desligar: apague a propriedade TRATAR_FOTO (ou ponha qualquer coisa != 'sim').
+//
+// Por que OpenRouter e não a API do Google direto: a chamada direta ao modelo de IMAGEM do
+// Gemini fica presa na cota do nível gratuito (HTTP 429 "free_tier_requests, limit: 0")
+// mesmo com faturamento ativo e vinculado — bug conhecido do lado do Google, sem prazo de
+// correção. O OpenRouter chama o MESMO modelo por outro caminho, com cobrança própria.
+// (As palavras-chave por TEXTO seguem na API do Google direto: aquilo nunca falhou.)
+//
+// Em QUALQUER falha — desligado, sem chave, offline, erro da API — a foto ORIGINAL é salva.
 // O app já envia a foto quadrada (1:1, ~1024px) desde a v33 — ver `compress()` no index.html.
+var OPENROUTER_IMAGE_URL = 'https://openrouter.ai/api/v1/images';
+var OPENROUTER_IMAGE_MODEL = 'google/gemini-2.5-flash-image';
+// ORDEM IMPORTA: a fidelidade ao item vem PRIMEIRO e a tarefa é enquadrada como RETOQUE de
+// fotografia, não geração de imagem. Pedir "recomponha/amplie" logo de cara fazia o modelo
+// REDESENHAR o produto. Mitiga o problema, mas NÃO o elimina — ver o aviso acima.
+var PROMPT_TRATAMENTO = [
+  'This is a PHOTO RETOUCHING task on a real photograph, NOT an image generation task.',
+  'The item shown is a specific physical product in a warehouse inventory, and the photo',
+  'exists so a worker can identify that exact piece.',
+  'ABSOLUTE RULE, more important than anything else below: the product itself is untouchable.',
+  'Preserve the real photographed object exactly as it appears — its exact shape, silhouette,',
+  'proportions, colors, materials, texture, imperfections, scratches and signs of wear.',
+  'Preserve every brand name, logo, label, printed text, number and symbol exactly as',
+  'photographed: same wording, same lettering, same position, same size.',
+  'Never redraw, repaint, restyle, straighten, clean, repair, complete or beautify the product.',
+  'Never substitute it with a similar, generic, newer or idealized version of the same kind of',
+  'object. If a part of the item is hidden, cropped, dirty or out of focus, leave it exactly',
+  'that way — never invent or reconstruct what is not visible.',
+  'You may ONLY change what surrounds the product, as follows.',
+  'Remove the background and replace it with a pure-white background that fills the entire',
+  'square frame edge to edge, with no border, frame, vignette or colored margin.',
+  'Light the product like a professional studio still life: one large, soft, diffused light',
+  'source placed above and slightly in front of the item, on a seamless white surface. That',
+  'lighting naturally produces a very faint contact shadow exactly where the base of the',
+  'product touches the surface — a narrow, soft-edged pool of very light grey that hugs the',
+  'bottom of the item and fades out smoothly within a short distance.',
+  'That shadow must be extremely subtle and almost white — it only grounds the object, it is',
+  'never a feature of the image. It must NOT be a dark or muddy grey blob, a smudge or smear,',
+  'a hard-edged shape, a long shadow cast off to one side, a shadow detached from the product,',
+  'or a mirror reflection.',
+  'Finally, crop and scale the ORIGINAL pixels of the photographed product so it is centered',
+  'and occupies about 85% of the square frame, leaving a thin white margin around it and room',
+  'for the contact shadow underneath. This is strictly a crop-and-resize operation: making the',
+  'product bigger must NEVER mean redrawing it.',
+  'Adjust only global color balance and sharpness, and only enough to make the real details',
+  'easier to read. Apart from the soft contact shadow, do not add, remove or invent anything.'
+].join(' ');
 
 // ====== Palavras-chave por IA (TEXTO) ======
 // Chave em Configurações do projeto > Propriedades do script, na chave GEMINI_API_KEY
-// (assim ela nunca aparece no index.html, que é público). Esta é a ÚNICA IA que restou no
-// backend, e ela sempre funcionou bem — modelos de texto não sofrem do problema de fidelidade
-// que derrubou o tratamento de foto.
+// (assim ela nunca aparece no index.html, que é público). Segue na API do Google direto:
+// modelos de TEXTO não sofrem nem do bug de cota nem do problema de fidelidade que atingem
+// o tratamento de foto.
 var GEMINI_TEXT_MODEL = 'gemini-2.5-flash-lite';
 // Prompt "ancorado": só expande o que está na descrição, nunca inventa dados.
 var PROMPT_KW = [
@@ -708,7 +758,83 @@ function getImageFolder_() {
 }
 
 /**
- * Recebe imagens em Base64 e salva no Drive EXATAMENTE como vieram, anexando as URLs ao item.
+ * Trata uma foto com a IA de imagem, via OpenRouter (fundo branco, sombra de contato suave,
+ * 1:1 estilo catálogo). Recebe base64 (sem prefixo) + mime e devolve { data, mime, model,
+ * custoUSD }. Devolve null em QUALQUER situação que não seja sucesso — DESLIGADO (padrão),
+ * sem chave, offline, erro da API, resposta sem imagem — e quem chama então salva a foto
+ * ORIGINAL. Ler o aviso sobre fidelidade no topo do arquivo antes de ligar.
+ */
+var IA_ULTIMO_ERRO_ = null; // motivo da última falha, devolvido em _debugIA (diagnóstico)
+
+function tratarImagemIA_(base64, mime) {
+  try {
+    var props = PropertiesService.getScriptProperties();
+
+    // Interruptor: sem TRATAR_FOTO='sim' o tratamento nem é tentado. Desligado é o padrão
+    // porque o modelo pode trocar o produto (ver aviso no topo) — a foto original é o
+    // comportamento seguro.
+    if (String(props.getProperty('TRATAR_FOTO') || '').trim().toLowerCase() !== 'sim') {
+      IA_ULTIMO_ERRO_ = 'desligado (defina TRATAR_FOTO=sim para ativar)';
+      return null;
+    }
+
+    var key = props.getProperty('OPENROUTER_API_KEY');
+    if (!key) { IA_ULTIMO_ERRO_ = 'sem OPENROUTER_API_KEY configurada'; return null; }
+
+    // Modelo trocável SEM reimplantar: basta editar a propriedade OPENROUTER_IMAGE_MODEL
+    // nas Propriedades do script (vazia = usa o padrão definido lá em cima).
+    var model = props.getProperty('OPENROUTER_IMAGE_MODEL') || OPENROUTER_IMAGE_MODEL;
+
+    // A imagem original entra como "referência" (image-to-image); o prompt cuida do resto.
+    var payload = {
+      model: model,
+      prompt: PROMPT_TRATAMENTO,
+      n: 1,
+      aspect_ratio: '1:1',
+      output_format: 'jpeg',
+      input_references: [{
+        type: 'image_url',
+        image_url: { url: 'data:' + (mime || 'image/jpeg') + ';base64,' + base64 }
+      }]
+    };
+    var resp = UrlFetchApp.fetch(OPENROUTER_IMAGE_URL, {
+      method: 'post',
+      contentType: 'application/json',
+      headers: { Authorization: 'Bearer ' + key },
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+    if (resp.getResponseCode() !== 200) {
+      IA_ULTIMO_ERRO_ = 'HTTP ' + resp.getResponseCode() + ' — ' + resp.getContentText().slice(0, 500);
+      Logger.log('tratarImagemIA_ FALHOU: ' + IA_ULTIMO_ERRO_);
+      return null;
+    }
+
+    var json = JSON.parse(resp.getContentText());
+    var img = json && json.data && json.data[0];
+    if (!img || !img.b64_json) {
+      IA_ULTIMO_ERRO_ = 'resposta sem imagem — ' + resp.getContentText().slice(0, 500);
+      Logger.log('tratarImagemIA_ FALHOU: ' + IA_ULTIMO_ERRO_);
+      return null;
+    }
+    return {
+      data: img.b64_json,
+      mime: img.media_type || 'image/jpeg',
+      model: model,
+      custoUSD: (json.usage && json.usage.cost) || 0
+    };
+  } catch (e) {
+    IA_ULTIMO_ERRO_ = 'exceção — ' + e;
+    Logger.log('tratarImagemIA_ FALHOU: ' + IA_ULTIMO_ERRO_);
+    return null; // qualquer exceção → usa a original
+  }
+}
+
+/**
+ * Recebe imagens em Base64 e salva no Drive, anexando as URLs ao item.
+ * Com TRATAR_FOTO='sim', tenta tratar cada imagem pela IA antes de salvar; em qualquer
+ * falha (ou com o tratamento desligado, que é o padrão) salva a foto ORIGINAL — nunca deixa
+ * de salvar. Só a versão final fica no Drive.
  * body: { codigo, images: [ { name, mime, data(base64 sem prefixo) } ] }
  */
 function uploadImages_(body) {
@@ -727,9 +853,22 @@ function uploadImages_(body) {
   var folder = getImageFolder_();
   var urls = [];
 
+  var debugIA = []; // por foto: 'OK <modelo> — US$ <custo>' ou o motivo de ter usado a original
+
   body.images.forEach(function (img, i) {
     var mime = img.mime || 'image/jpeg';
     var data = img.data;
+
+    // Tenta tratar com a IA; em qualquer falha (ou desligado), mantém os bytes originais.
+    IA_ULTIMO_ERRO_ = null;
+    var tratada = tratarImagemIA_(data, mime);
+    if (tratada && tratada.data) {
+      data = tratada.data;
+      mime = tratada.mime || mime;
+      debugIA.push('OK ' + tratada.model + ' — US$ ' + tratada.custoUSD);
+    } else {
+      debugIA.push(IA_ULTIMO_ERRO_ || 'falhou sem motivo capturado');
+    }
 
     var ext = mime.indexOf('png') >= 0 ? 'png' : 'jpg';
     var name = (img.name || (body.codigo + '_' + Date.now() + '_' + i)) + '.' + ext;
@@ -758,7 +897,7 @@ function uploadImages_(body) {
   // Lembra o resultado desta etiqueta por 6h (cobre qualquer retentativa do app).
   if (cacheKey) cache.put(cacheKey, JSON.stringify(urls), 21600);
 
-  return { ok: true, codigo: String(body.codigo), urls: urls };
+  return { ok: true, codigo: String(body.codigo), urls: urls, _debugIA: debugIA };
 }
 
 /* ------------------------------------------------------------------ */

@@ -62,7 +62,7 @@
 - **Commits:** `feat(prompt): sombra de contato suave nas fotos tratadas`,
   `fix(prompt): prioriza fidelidade ao item fotografado`
 
-## T6 — REMOVER o tratamento por IA  (2026-07-26)  ❌ feature encerrada
+## T6 — REMOVER o tratamento por IA  (2026-07-26)  ↩️ revertida pela T7
 - **Motivo:** a T5 não resolveu. O modelo continuou trocando o produto — uma BIC Cristal
   voltou como outro modelo de caneta, com empunhadura de borracha. A causa é estrutural:
   modelos de imagem são **geradores**, não editores. Ver "Por que foi removida" na `spec.md`.
@@ -79,6 +79,24 @@
     como caminho certo, para ninguém reintroduzir o mesmo erro.
 - **Verify:** `node --check apps-script.gs`; grep confirmando zero referências órfãs.
 - **Commit:** `revert(api): remove o tratamento de foto por IA`
+
+## T7 — Restaurar como OPCIONAL, desligado por padrão  (2026-07-26)
+- **Motivo:** o usuário quis manter a possibilidade de usar — "gostaria de voltar com a opção
+  de trabalhar com o tratamento de imagem usando o OpenRouter". O defeito de fidelidade é
+  conhecido por ele (viveu o caso da BIC), então a decisão é informada.
+- **Desenho:** em vez de reativar direto, o tratamento virou **opt-in explícito**. Sem a
+  propriedade `TRATAR_FOTO = sim`, `tratarImagemIA_` nem tenta a chamada e a foto original é
+  salva — o comportamento seguro continua sendo o padrão para quem não configurar nada.
+  Ligar/desligar não exige nova implantação (Propriedades do script valem na hora).
+- **Onde:** `apps-script.gs` — restaurados `tratarImagemIA_`, `PROMPT_TRATAMENTO` e as
+  constantes do OpenRouter; novo gate `TRATAR_FOTO` no início da função; `_debugIA` de volta
+  na resposta (agora permanente, não mais "temporário": é o que mostra o custo por foto e o
+  motivo de cada queda para a original, inclusive `desligado`).
+- **Renomeado:** `IA_DEBUG_LAST_ERROR_` → `IA_ULTIMO_ERRO_` — deixou de ser andaime de
+  depuração e virou parte do desenho.
+- **Verify:** `node --check apps-script.gs`; diff conferido contra a versão pré-remoção
+  (215aca4) para garantir que só o gate e o rename mudaram.
+- **Commit:** `feat(api): tratamento de foto por IA volta como opcional (TRATAR_FOTO)`
 
 ## Ideias descartadas (com o motivo)
 - **Escolher outro modelo no OpenRouter:** não resolve. Os 38 modelos de imagem do catálogo
