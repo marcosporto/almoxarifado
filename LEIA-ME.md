@@ -51,3 +51,74 @@ Arquivos: `index.html`, `sw.js`, `manifest.json`, `icon.svg`, `apps-script.gs`.
 ### Observação sobre a rota de separação
 A ordenação é alfanumérica natural: `Gaveta 1, Gaveta 2 … Prateleira 1, Prateleira 2, Prateleira 10`.
 Se quiser uma ordem física específica (ex.: prateleiras antes das gavetas), nomeie a localização com um prefixo de ordem, ex.: `01 - Prateleira 1`, `02 - Gaveta 1`. Me avise se preferir uma ordem fixa configurável.
+
+---
+
+## 4. (Opcional) Tratamento de foto por IA
+
+Deixa a foto com fundo branco e sombra suave, estilo catálogo. **Vem desligado de fábrica** e
+o app funciona perfeitamente sem isso — a foto é salva como saiu do celular.
+
+> ### ⚠️ Leia antes de ligar
+> Modelos de IA de imagem **geram** uma imagem nova em vez de editar a sua. Por isso eles
+> **podem trocar o produto** por um parecido: numa foto de teste, uma caneta BIC Cristal
+> (corpo liso, sem borracha) voltou como outro modelo de caneta, com empunhadura de borracha.
+> Como a foto serve para **identificar a peça**, confira o resultado antes de confiar —
+> principalmente em itens que se distinguem por detalhe pequeno (modelo, rótulo, conector,
+> bitola). Em itens de forma simples e sem texto importante, costuma funcionar bem.
+> Custo aproximado: **R$ 0,20 por foto** no modelo padrão.
+
+### Passo a passo
+
+**1. Publique o backend** (só na primeira vez)
+Planilha → **Extensões → Apps Script** → cole o `apps-script.gs` atualizado →
+**Implantar → Gerenciar implantações → ✏️ (lápis) → Nova versão → Implantar**.
+
+**2. Crie a chave no OpenRouter**
+- Acesse [openrouter.ai](https://openrouter.ai) e entre na sua conta.
+- **Credits** → confirme que há saldo (US$ 5 já dá para ~150 fotos).
+- **API Keys → Create Key** → **copie a chave na hora**: ela só aparece uma vez. Se fechar
+  sem copiar, não dá para recuperar — crie outra.
+
+**3. Ligue no Apps Script**
+No editor: **⚙️ Configurações do projeto → Propriedades do script → Adicionar propriedade**.
+Crie as duas e clique em **Salvar propriedades do script**:
+
+| Propriedade | Valor |
+|---|---|
+| `TRATAR_FOTO` | `sim` |
+| `OPENROUTER_API_KEY` | a chave copiada no passo 2 |
+
+Não precisa implantar de novo — Propriedades do script valem na hora.
+⚠️ **Não apague a `GEMINI_API_KEY`**, se existir: ela é das palavras-chave por IA, outra coisa.
+
+**4. Teste**
+Tire uma foto de um item pelo app e sincronize. O tratamento leva ~10-20s por foto.
+Depois abra a foto no Drive e confira se **o produto continua sendo o mesmo** — é isso que
+importa, mais que o fundo branco.
+
+### Para desligar
+Apague a propriedade `TRATAR_FOTO` (o **X** ao lado dela) e salve. Volta na hora para a foto
+original, sem reimplantar nada. Faça isso assim que aparecer qualquer foto com item trocado.
+
+### Para trocar de modelo
+Crie a propriedade `OPENROUTER_IMAGE_MODEL` com o nome do modelo, ex.:
+
+| Modelo | Custo relativo |
+|---|---|
+| `google/gemini-2.5-flash-image` | padrão (usado se você não criar a propriedade) |
+| `google/gemini-3-pro-image` | ~4× mais caro, tende a ser mais fiel |
+| `bytedance-seed/seedream-4.5` | ~3× mais barato |
+
+Lista completa: `https://openrouter.ai/api/v1/models?output_modalities=image`
+(o parâmetro é obrigatório; sem ele a API mostra só uma parte dos modelos).
+
+### Conferir custo e diagnosticar
+A resposta do envio traz um campo `_debugIA` com, para cada foto,
+`OK <modelo> — US$ <custo>` ou o motivo de ter usado a original (`desligado`,
+`sem OPENROUTER_API_KEY configurada`, erro HTTP…). Para ver: abra o app no navegador com
+**F12 → aba Rede**, envie a foto e procure a resposta da requisição
+`script.googleusercontent.com/echo?...` — a linha `302` logo acima é só o redirecionamento.
+
+> **Se falhar, nada quebra:** em qualquer erro — desligado, sem chave, sem crédito, sem
+> internet, erro da API — o backend salva a **foto original**. Você nunca perde a foto.
