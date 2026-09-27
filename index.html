@@ -771,10 +771,6 @@ function nearExpiry(it){
   const dias=(v - new Date())/(1000*60*60*24);
   return dias <= it.diasAviso;
 }
-function norm(s){ return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim(); }
-
-// escapa caracteres especiais de regex num termo de busca
-function escapeRe_(s){ return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); }
 
 // Nota de relevância de um item para a busca (q já normalizado; tokens = palavras da busca).
 // Devolve -1 se NÃO casa (alguma palavra não aparece em nenhum campo). Código e código de

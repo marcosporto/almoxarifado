@@ -23,6 +23,21 @@
     return String(c == null ? '' : c).trim().replace(/^0+/, '');
   }
 
+  // Normaliza texto para comparar e buscar: minúsculas, sem acento, sem espaço nas pontas.
+  // A remoção do acento é feita em dois passos: NFD separa a letra do sinal ("á" -> "a" + "´")
+  // e o replace apaga os sinais soltos (faixa U+0300..U+036F, os diacríticos combinantes).
+  // Por isso "ARMÁRIO" e "armario" viram a mesma coisa.
+  function norm(s) {
+    return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+  }
+
+  // Escapa os caracteres que o motor de regex trataria como comando, para poder procurar um
+  // termo digitado pelo usuário literalmente. Sem isto, buscar "1.5" casaria "165", e um "("
+  // solto quebraria a expressão inteira.
+  function escapeRe_(s) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
   // "aaaa-mm-dd" -> "dd/mm/aaaa". Se não tiver as três partes, devolve como veio.
   function fmtDate(iso) {
     if (!iso) return '';
@@ -66,7 +81,7 @@
     return nome ? 'Unid.: ' + nome : '';
   }
 
-  const api = { natCmp, normCod, fmtDate, ymd, esc, fmtDateTime, fmtUnidade };
+  const api = { natCmp, normCod, norm, escapeRe_, fmtDate, ymd, esc, fmtDateTime, fmtUnidade };
 
   // No navegador: vira global, como era antes. No Node/Vitest: vira export.
   Object.assign(global, api);

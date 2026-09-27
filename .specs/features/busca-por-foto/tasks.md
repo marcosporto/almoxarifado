@@ -148,15 +148,25 @@ português dizendo *por que* importam)
 - Skill: NONE
 
 **Done when**:
-- [ ] `norm` e `escapeRe_` saíram do `index.html` e entraram no `api` de `js/utils.js`
-- [ ] **Equivalência provada** antes/depois sobre centenas de entradas, incluindo aleatórias
+- [x] `norm` e `escapeRe_` saíram do `index.html` e entraram no `api` de `js/utils.js`
+- [x] **Equivalência provada** antes/depois sobre centenas de entradas, incluindo aleatórias
       (convenção "Método usado nas extrações" do `TESTING.md`)
-- [ ] Testes de `norm`: acento, maiúscula, `null`/`undefined`/vazio, espaço nas pontas
-- [ ] Testes de `escapeRe_`: cada metacaractere de regex escapado, texto comum intacto
-- [ ] As 6 chamadas de `norm` fora da busca (`locMatch`, `renderPickSearch`, `renderSaidaBusca`,
+- [x] Testes de `norm`: acento, maiúscula, `null`/`undefined`/vazio, espaço nas pontas
+- [x] Testes de `escapeRe_`: cada metacaractere de regex escapado, texto comum intacto
+- [x] As 6 chamadas de `norm` fora da busca (`locMatch`, `renderPickSearch`, `renderSaidaBusca`,
       `render`) continuam funcionando — conferir que nenhuma ficou órfã
-- [ ] Gate passa: `npm test`
-- [ ] Contagem de testes: **38 + os novos**, nenhum teste antigo removido ou enfraquecido
+- [x] Gate passa: `npm test`
+- [x] Contagem de testes: **38 + os novos**, nenhum teste antigo removido ou enfraquecido
+
+**Resultado:** 48 testes (38 + 10), 9 suites, 0 falhas. Equivalência: **10.084 comparações,
+0 divergências** contra as originais extraídas de `git show HEAD:index.html` (curadas + 5.000
+aleatórias com acento, diacrítico solto e metacaractere de regex). `index.html`: 0 definições
+locais, 7 chamadas preservadas; `js/utils.js` carrega na linha 415, antes do script inline (416).
+
+**Nota de escopo:** mantive o teste "estoura se não receber texto" para `escapeRe_`, que não
+mapeia a um critério literal desta tarefa. Justificativa: fixar o comportamento atual é o
+próprio objetivo da extração, e o arquivo já tem três precedentes iguais (`fmtDate` com
+número, `ymd` com texto, `normCod('0')`).
 
 **Tests**: unit
 **Gate**: quick

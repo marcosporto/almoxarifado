@@ -10,7 +10,7 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { natCmp, normCod, fmtDate, ymd, esc, fmtDateTime, fmtUnidade } = require('../js/utils.js');
+const { natCmp, normCod, norm, escapeRe_, fmtDate, ymd, esc, fmtDateTime, fmtUnidade } = require('../js/utils.js');
 
 describe('natCmp — ordenação "natural" de textos', () => {
   test('coloca A10 depois de A9 (a ordem alfabética faria o contrário)', () => {
@@ -249,5 +249,73 @@ describe('fmtUnidade — "1.0 - PECA" para "Unid.: PECA"', () => {
   // junto com a extração de propósito: refatoração não deve alterar comportamento.
   test('DEFEITO: perde parte do nome quando a unidade contém hífen', () => {
     assert.equal(fmtUnidade('1.0 - CAIXA C-10'), 'Unid.: 10');   // deveria ser "CAIXA C-10"
+  });
+});
+
+describe('norm — normaliza texto para comparar e buscar', () => {
+  test('ignora acento, que é o motivo da função existir: buscar "armario" tem de achar "ARMÁRIO"', () => {
+    assert.equal(norm('ARMÁRIO'), 'armario');
+    assert.equal(norm('Ação'), 'acao');
+    assert.equal(norm('ÇÃOÕÜÊÍ'), 'caoouei');
+  });
+
+  test('ignora maiúscula/minúscula', () => {
+    assert.equal(norm('BORRIFADOR'), norm('borrifador'));
+    assert.equal(norm('Caneta AZUL'), 'caneta azul');
+  });
+
+  test('trata nulo, indefinido e vazio como string vazia (a planilha devolve célula em branco)', () => {
+    assert.equal(norm(null), '');
+    assert.equal(norm(undefined), '');
+    assert.equal(norm(''), '');
+  });
+
+  test('remove espaço das pontas, mas preserva o do meio (que separa as palavras da busca)', () => {
+    assert.equal(norm('  Prateleira 1  '), 'prateleira 1');
+    // Tab e nova linha montados por código, para o teste não depender de escape no arquivo.
+    const tab = String.fromCharCode(9), nl = String.fromCharCode(10);
+    assert.equal(norm(tab + ' caneta azul ' + nl), 'caneta azul');
+  });
+
+  test('acento já decomposto vira o mesmo do composto (as duas formas aparecem em dado colado)', () => {
+    // "é" pode chegar como um caractere só ou como "e" + sinal de acento separado.
+    const composto = 'é', decomposto = 'é';
+    assert.notEqual(composto, decomposto);      // são strings diferentes na entrada
+    assert.equal(norm(composto), norm(decomposto));
+    assert.equal(norm(decomposto), 'e');
+  });
+});
+
+describe('escapeRe_ — escapa termo de busca para uso literal em regex', () => {
+  test('escapa cada metacaractere que o motor de regex trataria como comando', () => {
+    const metas = ['.', '*', '+', '?', '^', '$', '{', '}', '(', ')', '|', '[', ']', '\\'];
+    for (const c of metas) {
+      assert.equal(escapeRe_(c), '\\' + c, 'nao escapou: ' + c);
+    }
+  });
+
+  test('deixa texto comum intacto, que é o caso da maioria das buscas', () => {
+    assert.equal(escapeRe_('caneta azul'), 'caneta azul');
+    assert.equal(escapeRe_('BORRIFADOR 500ML'), 'BORRIFADOR 500ML');
+    assert.equal(escapeRe_(''), '');
+  });
+
+  test('o resultado casa o termo LITERALMENTE — é isto que a função existe para garantir', () => {
+    // Sem escapar, "1.5" casaria "165", porque o ponto vale "qualquer caractere".
+    assert.ok(new RegExp(escapeRe_('1.5')).test('1.5'));
+    assert.ok(!new RegExp(escapeRe_('1.5')).test('165'));
+  });
+
+  test('termo com parênteses não quebra a expressão (sem escapar, isto lançaria erro)', () => {
+    assert.doesNotThrow(() => new RegExp(escapeRe_('item (novo)')));
+    assert.ok(new RegExp(escapeRe_('item (novo)')).test('item (novo) 1'));
+  });
+
+  // ATENÇÃO: a função chama s.replace direto, sem converter para texto. Quem chama sempre
+  // passa um token já normalizado por norm(), então na prática é string. Registrado para a
+  // falha aparecer aqui, e não na tela, se algum dia alguém passar outra coisa.
+  test('estoura se não receber texto (comportamento atual)', () => {
+    assert.throws(() => escapeRe_(null), TypeError);
+    assert.throws(() => escapeRe_(undefined), TypeError);
   });
 });
