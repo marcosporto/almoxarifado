@@ -25,8 +25,11 @@ rígido — é um guia. Itens em "Ideias" só viram trabalho depois de passarem 
 
 Prioridade do mais valioso/menos arriscado para o mais ambicioso:
 
-1. **Testes automatizados básicos** — hoje não existem (ver `codebase/TESTING.md`).
-   Começar pelas funções "puras" (`natCmp`, `normCod`, `parseImport`, `isoDate_`).
+1. **Testes automatizados básicos** — 🟢 **iniciado em 2026-09-26** (v36).
+   `natCmp`, `normCod`, `fmtDate` e `ymd` saíram para `js/utils.js` e têm 20 testes
+   (`npm test`, runner nativo do Node, sem dependências). Falta: as demais funções
+   puras do `index.html` (`esc`, `fmtDateTime`, `fmtUnidade`), depois `parseImport`
+   (precisa deixar de ler o DOM) e os helpers do `apps-script.gs`. Ver `codebase/TESTING.md`.
 2. **Automatizar o número da versão** — hoje a versão fica em 3 lugares e é trocada
    à mão (ver `codebase/CONCERNS.md`). Risco de esquecer e quebrar o cache offline.
 3. ~~**Proteção de acesso ao backend**~~ — ✅ **FEITO** (v24): login com Google + lista de

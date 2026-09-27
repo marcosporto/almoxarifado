@@ -31,7 +31,9 @@
 - Why: simplicidade de publicação no GitHub Pages, sem etapa de build.
 - Impact: dificulta achar código, aumenta risco de quebrar algo sem perceber e impede
   testar funções isoladamente.
-- Fix approach: extrair CSS para `styles.css` e JS para `app.js` (ou módulos por área:
+- Progresso: em 2026-09-26 as funções puras (`natCmp`, `normCod`, `fmtDate`, `ymd`)
+  saíram para `js/utils.js` para poderem ser testadas. É um começo, não a solução.
+- Fix approach: extrair CSS para `styles.css` e o restante do JS para `app.js` (ou módulos por área:
   `sync.js`, `inventory.js`, `consumo.js`). É uma decisão arquitetural → quando for
   fazer, criar um `design.md` na feature correspondente.
 
@@ -49,12 +51,15 @@
 
 **Casamento de código por número (zeros à esquerda):**
 
-- Files: `index.html` → `normCod()` e `findItemByCodigo()`.
+- Files: `js/utils.js` → `normCod()` (extraída em 2026-09-26); `index.html` → `findItemByCodigo()`.
 - Why fragile: `normCod` remove zeros à esquerda para casar códigos na importação.
   Itens que diferem **apenas** por zeros à esquerda poderiam casar com o item errado.
 - Safe modification: ao importar, preferir o código exato; só cair no "sem zeros"
-  quando não houver correspondência exata (que é o que o código já tenta — manter assim
-  e cobrir com teste quando houver testes).
+  quando não houver correspondência exata (que é o que o código já tenta — manter assim).
+- Status: ✅ `normCod()` coberta por testes em `tests/utils.test.js` (2026-09-26).
+  Os testes registraram um caso que **continua em aberto**: um código composto só de
+  zeros ("0", "000") vira string vazia e passa a casar com código vazio. Corrigir isso
+  é decisão de produto — o teste documenta o comportamento atual, não o aprova.
 
 ## Dependencies at Risk
 
@@ -87,10 +92,11 @@
 
 ## Test Coverage Gaps
 
-**Cobertura zero:**
+**Cobertura parcial (era zero até 2026-09-26):**
 
-- What's not tested: tudo. Em especial a lógica de sincronização offline (`syncNow`,
-  `mergeWithPending`) e o parser de importação (`parseImport`).
+- What IS tested: `natCmp`, `normCod`, `fmtDate`, `ymd` — 20 testes em `tests/utils.test.js`.
+- What's not tested: todo o resto. Em especial a lógica de sincronização offline
+  (`syncNow`, `mergeWithPending`) e o parser de importação (`parseImport`).
 - Risk: uma mudança pode quebrar a sincronização e só ser percebida em produção, com
   risco de **perda de dados** conferidos offline.
 - Priority: High (sincronização) / Medium (parsers e formatadores).
