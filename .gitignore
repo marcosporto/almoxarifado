@@ -11,3 +11,7 @@ Desktop.ini
 
 # Claude Code — preferências pessoais desta máquina (não compartilhar)
 .claude/settings.local.json
+
+# Dependencias de desenvolvimento (somente para rodar os testes)
+node_modules/
+coverage/

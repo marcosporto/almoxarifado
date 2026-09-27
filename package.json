@@ -1,0 +1,13 @@
+{
+  "name": "almoxarifado-udesc",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Testes automatizados do app de almoxarifado. O app em si NAO tem build: index.html, sw.js e os .js sao servidos como estao. Este package.json existe somente para rodar os testes em desenvolvimento.",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
+  }
+}
