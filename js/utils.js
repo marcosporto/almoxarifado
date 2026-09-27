@@ -36,7 +36,16 @@
     return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
   }
 
-  const api = { natCmp, normCod, fmtDate, ymd };
+  // Escapa texto para poder ir dentro do HTML sem virar marcacao.
+  // IMPORTANTE: cobre os cinco caracteres que importam em conteudo de texto e em
+  // atributos ENTRE ASPAS. Nao e suficiente para atributo sem aspas, para dentro de
+  // <script>/<style>, nem para montar URL. Todo uso atual no index.html cai nos dois
+  // casos cobertos (ver tests/utils.test.js).
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  const api = { natCmp, normCod, fmtDate, ymd, esc };
 
   // No navegador: vira global, como era antes. No Node/Vitest: vira export.
   Object.assign(global, api);

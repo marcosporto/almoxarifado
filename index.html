@@ -1458,7 +1458,7 @@ function driveLh3(u){ const id=driveId(u); return id?'https://lh3.googleusercont
 function driveFull(u){ const id=driveId(u); return id?'https://lh3.googleusercontent.com/d/'+id+'=w1600':u; } // abre a imagem direta (sem pedir login)
 // se o link "thumbnail" falhar, tenta o lh3 uma vez antes de desistir
 function imgFallback(el){ const fb=el.getAttribute('data-fb'); if(fb && el.src!==fb){ el.removeAttribute('data-fb'); el.src=fb; } else { el.onerror=null; } }
-function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// esc() vive em js/utils.js (testada em tests/utils.test.js)
 // Data/hora ISO -> "dd/mm/aaaa hh:mm"
 function fmtDateTime(iso){ if(!iso) return ''; const d=new Date(iso); if(isNaN(d)) return String(iso); const p=n=>String(n).padStart(2,'0'); return p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear()+' '+p(d.getHours())+':'+p(d.getMinutes()); }
 // Agora -> "aaaa-mm-ddThh:mm" (para datetime-local). O ymd() saiu para js/utils.js

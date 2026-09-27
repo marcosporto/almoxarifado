@@ -10,7 +10,7 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { natCmp, normCod, fmtDate, ymd } = require('../js/utils.js');
+const { natCmp, normCod, fmtDate, ymd, esc } = require('../js/utils.js');
 
 describe('natCmp — ordenação "natural" de textos', () => {
   test('coloca A10 depois de A9 (a ordem alfabética faria o contrário)', () => {
@@ -127,5 +127,53 @@ describe('ymd — Date para "aaaa-mm-dd" (formato do <input type="date">)', () =
   test('estoura se não receber um Date (comportamento atual)', () => {
     assert.throws(() => ymd('2026-09-26'), TypeError);
     assert.throws(() => ymd(null), TypeError);
+  });
+});
+
+describe('esc — escapa texto para entrar no HTML', () => {
+  test('neutraliza os cinco caracteres que quebram marcação', () => {
+    assert.equal(esc('&'), '&amp;');
+    assert.equal(esc('<'), '&lt;');
+    assert.equal(esc('>'), '&gt;');
+    assert.equal(esc('"'), '&quot;');
+    assert.equal(esc("'"), '&#39;');
+  });
+
+  test('desarma uma tentativa de injetar script', () => {
+    assert.equal(
+      esc('<script>alert(1)</script>'),
+      '&lt;script&gt;alert(1)&lt;/script&gt;'
+    );
+  });
+
+  // É assim que esc() é usada no index.html: data-codigo="${esc(...)}".
+  // O escape das aspas duplas é o que impede fechar o atributo e injetar outro.
+  test('impede fugir de um atributo entre aspas duplas', () => {
+    assert.equal(esc('" onerror="alert(1)'), '&quot; onerror=&quot;alert(1)');
+  });
+
+  test('não escapa duas vezes — cada caractere é tratado uma vez só', () => {
+    assert.equal(esc('&lt;'), '&amp;lt;');
+  });
+
+  test('deixa passar texto normal, inclusive acentos', () => {
+    assert.equal(esc('Parafuso 3/8" galvanizado'), 'Parafuso 3/8&quot; galvanizado');
+    assert.equal(esc('Válvula esférica'), 'Válvula esférica');
+  });
+
+  test('trata nulo, indefinido e número', () => {
+    assert.equal(esc(null), '');
+    assert.equal(esc(undefined), '');
+    assert.equal(esc(0), '0');
+    assert.equal(esc(42), '42');
+  });
+
+  // ATENÇÃO — limite conhecido, não é defeito: esc() NÃO escapa crase nem "=",
+  // então não protege atributo SEM aspas (id=${esc(x)}), nem conteúdo dentro de
+  // <script>/<style>, nem montagem de URL. Hoje os 45 usos no index.html são só
+  // texto e atributos entre aspas duplas, que são os casos cobertos acima.
+  test('não escapa crase nem "=" (por isso exige atributo entre aspas)', () => {
+    assert.equal(esc('`'), '`');
+    assert.equal(esc('='), '=');
   });
 });
