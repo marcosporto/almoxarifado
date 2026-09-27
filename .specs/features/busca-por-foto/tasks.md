@@ -430,14 +430,29 @@ existentes de localização/pendentes/alertas; `onSearchInput()`
 - Skill: NONE
 
 **Done when**:
-- [ ] Sucesso preenche a barra de busca com os termos e liga o modo foto (BFOTO-04)
-- [ ] Em modo foto, a lista sai de `searchFilterFoto_()` — o `render()` **não** recalcula
+- [x] Sucesso preenche a barra de busca com os termos e liga o modo foto (BFOTO-04)
+- [x] Em modo foto, a lista sai de `searchFilterFoto_()` — o `render()` **não** recalcula
       pontuação nem aplica teto por conta própria
-- [ ] Cada candidato é o `card()` normal, sem tela nova (BFOTO-06)
-- [ ] Editar a barra à mão desliga o modo foto e volta ao AND (BFOTO-12)
-- [ ] Filtros de localização/pendentes/feitos/alertas continuam respeitados (edge case da spec)
-- [ ] Verificação manual: fotografar item conhecido e ver o card certo no topo; digitar na barra
-      e ver o comportamento antigo voltar
+- [x] Cada candidato é o `card()` normal, sem tela nova (BFOTO-06)
+- [x] Editar a barra à mão desliga o modo foto e volta ao AND (BFOTO-12)
+- [x] Filtros de localização/pendentes/feitos/alertas continuam respeitados (edge case da spec)
+- [ ] ⏳ Verificação manual no celular — só possível depois de publicar (T10)
+
+**Como ficou o `render()`:** virou três modos explícitos em vez de dois implícitos. Primeiro
+monta o `base` aplicando os filtros (válidos nos três modos, o que resolve o edge case), depois
+escolhe: modo foto → `searchFilterFoto_`; busca digitada → `searchScore_` + ordenação de sempre;
+sem busca → alertas e rota. A busca digitada e a lista sem busca ficaram com o comportamento
+**idêntico** ao de antes — os 18 testes da T3 provam isso e seguem passando.
+
+**Correção de organização:** `let fotoModo` nasceu junto de `buscarPorFoto()`, ~390 linhas
+ABAIXO de `render()` e `onSearchInput()`, que o leem. Funcionava (as funções só rodam depois
+do script inteiro ser avaliado), mas é frágil e confuso. Movi para junto do `_searchT`, antes
+de quem usa.
+
+**Aviso de contexto:** em modo foto, a barra abaixo da busca diz o que a IA viu e quantos
+candidatos saíram. Sem isso a pessoa não tem como saber POR QUE apareceu o que apareceu — e
+como a resposta da IA é um palpite ranqueado, e não uma certeza como o código de barras, essa
+explicação é parte da feature, não enfeite.
 
 **Tests**: none (lógica pura já coberta em T4; aqui só resta DOM)
 **Gate**: manual

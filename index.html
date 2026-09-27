@@ -787,23 +787,57 @@ function nearExpiry(it){
 // Busca: aguarda uma pausa na digitação antes de re-renderizar (evita reconstruir
 // a lista a cada tecla — mais fluido em inventários grandes).
 let _searchT;
-function onSearchInput(){ clearTimeout(_searchT); _searchT=setTimeout(render, 120); }
+// Estado do "modo foto": { termos, visto } enquanto a lista mostra candidatos de uma foto,
+// null quando a busca é a digitada de sempre. Quem apaga é limparBuscaFoto() ou digitar.
+// Declarado aqui, e não junto de buscarPorFoto(), porque render() e onSearchInput() leem ele
+// e ficam acima no arquivo — estado deve ser declarado antes de quem o usa.
+let fotoModo = null;
+// Digitar à mão SAI do modo foto: as palavras passam a ser as da pessoa, então volta a valer
+// a regra E de sempre. (Preencher a barra por código, como a busca por foto faz, não dispara
+// este evento — só a digitação dispara.)
+function onSearchInput(){
+  if(fotoModo){ fotoModo=null; avisoFoto(''); }
+  clearTimeout(_searchT); _searchT=setTimeout(render, 120);
+}
 
 function render(){
   const q = norm(document.getElementById('search-box').value);
   const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
-  let list = items.filter(it=>{
+
+  // Os filtros (localização, pendentes/feitos/alertas) valem nos três modos.
+  const base = items.filter(it=>{
     if(!locMatch(it)) return false;
     if(filter==='pendentes' && it.inventariado) return false;
     if(filter==='feitos' && !it.inventariado) return false;
     if(filter==='alertas' && !isAlert(it)) return false;
-    if(q){ it._score = searchScore_(it, q, tokens); return it._score >= 0; }
     return true;
   });
-  // Com busca: relevância primeiro (código único no topo) e depois os critérios de sempre.
-  // Sem busca: alertas primeiro, depois por localização (rota natural).
-  if(q) list.sort((a,b)=> (b._score-a._score) || (isAlert(b)-isAlert(a)) || natCmp(a.localizacao,b.localizacao) || natCmp(a.descricao,b.descricao));
-  else  list.sort((a,b)=> (isAlert(b)-isAlert(a)) || natCmp(a.localizacao,b.localizacao) || natCmp(a.descricao,b.descricao));
+
+  let list;
+  if(fotoModo){
+    // Modo foto: as palavras vieram da IA. searchFilterFoto_ já devolve filtrado, ordenado
+    // e cortado no teto de candidatos — o ranking não é recalculado aqui de propósito, para
+    // ficar todo na camada pura que tem teste (js/search.js).
+    list = searchFilterFoto_(base, fotoModo.termos);
+  } else if(q){
+    // Busca digitada: relevância primeiro (código único no topo), depois os critérios de sempre.
+    list = base.filter(it=>{ it._score = searchScore_(it, q, tokens); return it._score >= 0; });
+    list.sort((a,b)=> (b._score-a._score) || (isAlert(b)-isAlert(a)) || natCmp(a.localizacao,b.localizacao) || natCmp(a.descricao,b.descricao));
+  } else {
+    // Sem busca: alertas primeiro, depois por localização (rota natural).
+    list = base;
+    list.sort((a,b)=> (isAlert(b)-isAlert(a)) || natCmp(a.localizacao,b.localizacao) || natCmp(a.descricao,b.descricao));
+  }
+
+  // No modo foto, conta os candidatos e conta também o que a IA entendeu — sem isso a pessoa
+  // não tem como saber POR QUE apareceu o que apareceu.
+  if(fotoModo){
+    const viu = fotoModo.visto ? '"'+fotoModo.visto+'"' : 'algo na foto';
+    avisoFoto(list.length
+      ? '📷 A IA viu ' + viu + ' — ' + list.length + (list.length===1?' candidato':' candidatos') + ', mais provável primeiro.'
+      : '📷 A IA viu ' + viu + ', mas nenhum item do cadastro casou com essas palavras. Edite a busca acima ou tente outra foto.',
+      true);
+  }
 
   const el=document.getElementById('item-list'); el.innerHTML='';
   list.forEach(it=> el.appendChild(card(it)));
@@ -1154,9 +1188,6 @@ function scanSearch(){
 }
 
 /* ---------- Buscar item pela foto (câmera + IA) ---------- */
-// Estado do "modo foto": { termos, visto } enquanto a lista mostra candidatos de uma foto,
-// null quando a busca é a digitada de sempre. Quem apaga é limparBuscaFoto() ou digitar.
-let fotoModo = null;
 // Cada captura recebe um número. Se a pessoa fotografa de novo antes de a primeira responder,
 // a resposta velha chega depois e seria aplicada por cima — o número descarta a atrasada.
 let _fotoBuscaSeq = 0;
