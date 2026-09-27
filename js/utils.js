@@ -45,7 +45,18 @@
     return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
-  const api = { natCmp, normCod, fmtDate, ymd, esc };
+  // Data/hora ISO -> "dd/mm/aaaa hh:mm", no fuso LOCAL de quem está olhando.
+  // Se a string tiver fuso ("...Z"), o horário é convertido; se não tiver, é lido
+  // como horário de parede. Entrada que o Date não entende volta como veio.
+  function fmtDateTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (isNaN(d)) return String(iso);
+    const p = n => String(n).padStart(2, '0');
+    return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+
+  const api = { natCmp, normCod, fmtDate, ymd, esc, fmtDateTime };
 
   // No navegador: vira global, como era antes. No Node/Vitest: vira export.
   Object.assign(global, api);

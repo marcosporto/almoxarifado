@@ -10,7 +10,7 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { natCmp, normCod, fmtDate, ymd, esc } = require('../js/utils.js');
+const { natCmp, normCod, fmtDate, ymd, esc, fmtDateTime } = require('../js/utils.js');
 
 describe('natCmp — ordenação "natural" de textos', () => {
   test('coloca A10 depois de A9 (a ordem alfabética faria o contrário)', () => {
@@ -175,5 +175,47 @@ describe('esc — escapa texto para entrar no HTML', () => {
   test('não escapa crase nem "=" (por isso exige atributo entre aspas)', () => {
     assert.equal(esc('`'), '`');
     assert.equal(esc('='), '=');
+  });
+});
+
+describe('fmtDateTime — data/hora ISO para "dd/mm/aaaa hh:mm"', () => {
+  test('formata uma data/hora sem fuso como horário de parede', () => {
+    // Sem "Z" e sem offset, o JavaScript lê como horário local — o que chega
+    // na tela é exatamente o que está escrito.
+    assert.equal(fmtDateTime('2026-09-26T14:30:00'), '26/09/2026 14:30');
+  });
+
+  test('completa dia, mês, hora e minuto com zero à esquerda', () => {
+    assert.equal(fmtDateTime('2026-01-05T00:05:00'), '05/01/2026 00:05');
+  });
+
+  test('sobrevive à virada de ano', () => {
+    assert.equal(fmtDateTime('2026-12-31T23:59:00'), '31/12/2026 23:59');
+  });
+
+  // O fuso é fixado aqui de propósito: sem isso o teste passaria ou falharia
+  // conforme o relógio da máquina de quem roda.
+  test('converte horário com "Z" (UTC) para o fuso local', () => {
+    const fusoOriginal = process.env.TZ;
+    try {
+      process.env.TZ = 'America/Sao_Paulo';   // UTC-3
+      assert.equal(fmtDateTime('2026-09-26T14:30:00Z'), '26/09/2026 11:30');
+      process.env.TZ = 'UTC';
+      assert.equal(fmtDateTime('2026-09-26T14:30:00Z'), '26/09/2026 14:30');
+    } finally {
+      process.env.TZ = fusoOriginal;
+    }
+  });
+
+  test('devolve vazio para nulo, indefinido e vazio', () => {
+    assert.equal(fmtDateTime(''), '');
+    assert.equal(fmtDateTime(null), '');
+    assert.equal(fmtDateTime(undefined), '');
+  });
+
+  // Diferente de fmtDate(), esta não estoura com entrada estranha: devolve como veio.
+  test('devolve o valor original quando não é data reconhecível', () => {
+    assert.equal(fmtDateTime('nao e data'), 'nao e data');
+    assert.equal(fmtDateTime('2026-13-45T99:99:99'), '2026-13-45T99:99:99');
   });
 });
