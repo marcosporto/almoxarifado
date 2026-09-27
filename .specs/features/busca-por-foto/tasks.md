@@ -237,20 +237,33 @@ palavras-chave) — muda só a regra de exigência
 - Skill: NONE
 
 **Done when**:
-- [ ] `photoScore_(it, tokens)` **não** exige todas as palavras; pontua por quantas casaram
-- [ ] Item com **zero** termos casados é excluído (AC 2)
-- [ ] Casamento exato em `codigo`/`codigoBarras` domina o topo, reusando o peso de 10000 (AC 3)
-- [ ] `searchFilterFoto_(list, tokens)` devolve a lista **já filtrada, ordenada e limitada a 12**
+- [x] `photoScore_(it, tokens)` **não** exige todas as palavras; pontua por quantas casaram
+- [x] Item com **zero** termos casados é excluído (AC 2)
+- [x] Casamento exato em `codigo`/`codigoBarras` domina o topo, reusando o peso de 10000 (AC 3)
+- [x] `searchFilterFoto_` devolve a lista **já filtrada, ordenada e limitada a 12**
       — o teto e a ordenação ficam nesta função pura, **não** no `render()`, para serem testáveis
-- [ ] `searchScore_()` continua **intocada** (a busca digitada não muda) — provado pelos testes
-      de T3, que devem continuar passando sem alteração
-- [ ] Teste do caso que motivou a história: termos `caneta esferografica azul tampa plastico`
+- [x] `searchScore_()` continua **intocada** (a busca digitada não muda) — provado pelos testes
+      de T3, que continuam passando sem alteração
+- [x] Teste do caso que motivou a história: termos `caneta esferografica azul tampa plastico`
       contra item `CANETA ESFEROGRAFICA AZUL` → `searchScore_` devolve `-1`, `photoScore_`
       devolve positivo
-- [ ] Testes dos edge cases da spec: termo genérico demais (teto corta), lista vazia, tokens
+- [x] Testes dos edge cases da spec: termo genérico demais (teto corta), lista vazia, tokens
       vazios, item sem `palavrasChave`
-- [ ] Gate passa: `npm test`
-- [ ] Contagem de testes: total anterior + os novos, nenhum removido
+- [x] Gate passa: `npm test`
+- [x] Contagem de testes: total anterior + os novos, nenhum removido
+
+**Resultado:** 83 testes (66 + 17), 14 suites, 0 falhas. O caso motivador está travado nos dois
+lados: `searchScore_` = **-1**, `photoScore_` = **84**. Pesos do modo foto medidos e fixados:
+código/código de barras por termo `10000` (OCR), palavra inteira `20`, palavra-chave `12`,
+pedaço `5`; sem bónus de começo de descrição, porque a ordem das palavras da IA é arbitrária
+(diferença deliberada, com teste próprio: `caneta` dá 232 na digitada e 32 no modo foto).
+
+**Duas simplificações em relação ao planejado:**
+1. Assinatura ficou `searchFilterFoto_(list, raw)` em vez de `(list, tokens)`, espelhando
+   `searchFilter_(list, raw)`: a normalização e a quebra em palavras ficam dentro da camada
+   testada, e o `render()` só recebe a lista pronta.
+2. Cheguei a escrever um parâmetro `teto` e a exportar a constante; removi os dois. Ninguém
+   pediu teto configurável, e o corte em 12 é testável só alimentando 20 itens.
 
 **Tests**: unit
 **Gate**: quick

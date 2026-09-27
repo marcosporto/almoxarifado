@@ -18,7 +18,7 @@ const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 
 const { norm } = require('../js/utils.js');
-const { searchScore_, searchFilter_ } = require('../js/search.js');
+const { searchScore_, searchFilter_, photoScore_, searchFilterFoto_ } = require('../js/search.js');
 
 // Itens de exemplo, tirados do almoxarifado real (ver a aba Estoque).
 const BORRIFADOR = {
@@ -153,6 +153,126 @@ describe('searchFilter_ — filtra e ordena do mais relevante ao menos', () => {
   test('não altera a lista recebida (o app reusa o mesmo array)', () => {
     const lista = [BORRIFADOR, CANETA, PAPEL];
     searchFilter_(lista, 'azul');
+    assert.deepEqual(lista.map(i => i.codigo), ['55115002', '99', '150']);
+  });
+});
+
+/* ---------- Modo foto (a IA descreve, a busca procura) ---------- */
+
+// Itens extras, para comparar candidatos que casam com pesos diferentes.
+const CANETA_TEXTO = { codigo: '300', descricao: 'CANETA MARCA TEXTO', codigoBarras: '', palavrasChave: '' };
+const LAPIS_AZUL = { codigo: '400', descricao: 'LAPIS AZUL', codigoBarras: '', palavrasChave: '' };
+
+// Chama photoScore_ do jeito que o app vai chamar: os termos que a IA devolveu.
+function notaFoto(item, termos) {
+  const q = norm(termos);
+  return photoScore_(item, q ? q.split(/\s+/).filter(Boolean) : []);
+}
+
+describe('photoScore_ — pontuação quando as palavras vêm da IA, não do usuário', () => {
+  // ESTA é a razão de a função existir. A IA escolhe as palavras dela; se sobrar uma que não
+  // está na planilha, a regra E da busca digitada devolveria lista vazia.
+  test('não exige todas as palavras — o caso que motivou a feature', () => {
+    const termos = 'caneta esferografica azul tampa plastico';
+    assert.equal(nota(CANETA, termos), -1);        // busca digitada: descarta o item
+    assert.equal(notaFoto(CANETA, termos), 84);   // modo foto: acha
+  });
+
+  test('uma palavra certa basta, mesmo acompanhada de palavra errada', () => {
+    assert.equal(nota(CANETA, 'azul geladeira'), -1);
+    assert.equal(notaFoto(CANETA, 'azul geladeira'), 32);
+  });
+
+  test('pontua por quantas palavras casaram: mais palavras, nota maior', () => {
+    assert.equal(notaFoto(CANETA, 'caneta'), 32);         // 20 (palavra inteira) + 12 (palavra-chave)
+    assert.equal(notaFoto(CANETA, 'caneta azul'), 64);    // o dobro: as duas casam
+  });
+
+  test('item que não casa NENHUMA palavra sai do resultado', () => {
+    assert.equal(notaFoto(CANETA, 'geladeira freezer'), -1);
+    assert.equal(notaFoto(LAPIS_AZUL, 'borrifador plastico'), -1);
+  });
+
+  test('código de barras lido na etiqueta domina o ranking (10000)', () => {
+    // É o ganho de OCR: se a IA conseguiu ler o número impresso, a resposta é definitiva.
+    assert.equal(notaFoto(CANETA, '7891234'), 10000);
+    assert.equal(notaFoto(CANETA, '7891234 caneta azul'), 10064);  // 10000 + 64 das palavras
+  });
+
+  test('código interno lido na etiqueta domina igual', () => {
+    assert.equal(notaFoto(CANETA, '99'), 10000);
+  });
+
+  // Diferença deliberada em relação à busca digitada, não esquecimento: o bônus de "descrição
+  // começa com a consulta" não faz sentido aqui, porque a ordem das palavras da IA é arbitrária.
+  test('não dá bônus de começo de descrição, ao contrário da busca digitada', () => {
+    assert.equal(nota(CANETA, 'caneta'), 232);        // 200 (começo) + 20 + 12
+    assert.equal(notaFoto(CANETA, 'caneta'), 32);     // sem os 200
+  });
+
+  test('item sem palavras-chave nem código de barras não quebra', () => {
+    const magro = { codigo: '1', descricao: 'CANETA', codigoBarras: undefined, palavrasChave: undefined };
+    assert.equal(notaFoto(magro, 'caneta'), 20);
+  });
+
+  test('ignora acento e maiúscula, como o resto da busca', () => {
+    assert.equal(notaFoto(BORRIFADOR, 'AGUA'), notaFoto(BORRIFADOR, 'água'));
+  });
+
+  test('não altera a busca digitada: searchScore_ continua exigindo tudo', () => {
+    // Guarda contra o erro mais fácil de cometer aqui — "consertar" o AND junto.
+    assert.equal(nota(CANETA, 'caneta esferografica azul tampa plastico'), -1);
+    assert.equal(nota(CANETA, 'azul geladeira'), -1);
+  });
+});
+
+describe('searchFilterFoto_ — lista de candidatos da busca por foto', () => {
+  test('ordena do mais provável ao menos provável', () => {
+    // CANETA casa as duas palavras (64); LAPIS_AZUL e CANETA_TEXTO casam uma só (20 cada).
+    assert.deepEqual(
+      searchFilterFoto_([LAPIS_AZUL, CANETA_TEXTO, CANETA], 'caneta azul').map(i => i.codigo),
+      ['99', '400', '300']
+    );
+  });
+
+  test('quem casou o número lido pelo OCR vem na frente', () => {
+    assert.deepEqual(
+      searchFilterFoto_([CANETA_TEXTO, CANETA], '7891234 caneta').map(i => i.codigo),
+      ['99', '300']
+    );
+  });
+
+  test('descarta quem não casa nenhuma palavra', () => {
+    assert.deepEqual(
+      searchFilterFoto_([BORRIFADOR, CANETA, PAPEL], 'caneta azul').map(i => i.codigo),
+      ['99']
+    );
+  });
+
+  test('corta no teto de 12 candidatos, porque acima disso é ruído', () => {
+    const muitos = Array.from({ length: 20 }, (_, i) => (
+      { codigo: String(900 + i), descricao: 'CANETA MODELO ' + i, codigoBarras: '', palavrasChave: '' }
+    ));
+    assert.equal(searchFilterFoto_(muitos, 'caneta').length, 12);
+  });
+
+  // Diferença deliberada: na busca digitada, consulta vazia significa "mostre tudo". Aqui
+  // significa que a IA não identificou nada, e mostrar o inventário inteiro seria pior que
+  // mostrar nada — quem trata esse caso é a mensagem "não consegui identificar" na tela.
+  test('sem termos devolve vazio, ao contrário da busca digitada que devolve tudo', () => {
+    const lista = [BORRIFADOR, CANETA, PAPEL];
+    assert.deepEqual(searchFilterFoto_(lista, ''), []);
+    assert.deepEqual(searchFilterFoto_(lista, '   '), []);
+    assert.equal(searchFilter_(lista, '').length, 3);
+  });
+
+  test('lista vazia devolve vazia', () => {
+    assert.deepEqual(searchFilterFoto_([], 'caneta'), []);
+  });
+
+  test('não altera a lista recebida (o app reusa o mesmo array)', () => {
+    const lista = [BORRIFADOR, CANETA, PAPEL];
+    searchFilterFoto_(lista, 'caneta azul');
     assert.deepEqual(lista.map(i => i.codigo), ['55115002', '99', '150']);
   });
 });
