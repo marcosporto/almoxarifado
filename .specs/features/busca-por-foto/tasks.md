@@ -519,13 +519,14 @@ reconhecível, o número acha o item. Por isso a condição de "não identifique
 - Skill: NONE
 
 **Done when**:
-- [ ] `APP_VERSION = 'v38'` no `index.html`
-- [ ] `CACHE = 'almox-udesc-v38'` no `sw.js`
-- [ ] ⚠️ Os dois **no mesmo commit** — trocar só um entrega a versão velha em cache
+- [x] `APP_VERSION = 'v38'` no `index.html` (linha 431)
+- [x] `CACHE = 'almox-udesc-v38'` no `sw.js` (linha 5)
+- [x] ⚠️ Os dois **no mesmo commit** — trocar só um entrega a versão velha em cache
       (aprendizado registrado no `STATE.md`)
-- [ ] `./js/search.js` confirmado no `SHELL` (veio de T3; reconferir aqui é a última chance
-      antes de publicar)
-- [ ] Gate passa: `npm test` + roteiro manual do `TESTING.md` (gate **full**)
+- [x] `./js/search.js` confirmado no `SHELL` (linha 13)
+- [x] Gate automático: `npm test` → 83 testes, 0 falhas; `node --check` em `js/utils.js`,
+      `js/search.js`, `sw.js`, no script inline do `index.html` e no `apps-script.gs` — todos OK
+- [ ] ⏳ Roteiro manual do `TESTING.md` — depende de publicar (passo do usuário)
 
 **Tests**: none
 **Gate**: full
