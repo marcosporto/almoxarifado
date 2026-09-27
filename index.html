@@ -413,6 +413,7 @@
 <!-- Funcoes puras do app, extraidas para poderem ser testadas pelo Vitest.
      Precisa ser carregado ANTES do bloco de codigo principal, logo abaixo. -->
 <script src="./js/utils.js"></script>
+<script src="./js/search.js"></script>
 <script>
 /* =========================================================================
    Almoxarifado UDESC — app offline-first
@@ -772,32 +773,6 @@ function nearExpiry(it){
   return dias <= it.diasAviso;
 }
 
-// Nota de relevância de um item para a busca (q já normalizado; tokens = palavras da busca).
-// Devolve -1 se NÃO casa (alguma palavra não aparece em nenhum campo). Código e código de
-// barras são identificadores ÚNICOS, então casar neles DOMINA o ranking (vão pro topo).
-function searchScore_(it, q, tokens){
-  const desc=norm(it.descricao), cod=norm(it.codigo), bar=norm(it.codigoBarras), kw=norm(it.palavrasChave);
-  const hay=desc+' '+cod+' '+bar+' '+kw;
-  for(const t of tokens){ if(!hay.includes(t)) return -1; }    // E (AND): todas as palavras
-  let s=0;
-  if(cod===q || bar===q) s+=10000;                             // match único / definitivo
-  else if(cod.startsWith(q) || bar.startsWith(q)) s+=2000;     // digitou parte do código
-  if(desc.startsWith(q)) s+=200;
-  for(const t of tokens){
-    if(new RegExp('(^|[^a-z0-9])'+escapeRe_(t)+'([^a-z0-9]|$)').test(desc)) s+=20; // palavra inteira
-    else if(desc.includes(t)) s+=5;                                                 // pedaço
-    if(kw.includes(t)) s+=12;                                                       // palavra-chave
-  }
-  return s;
-}
-
-// Filtra + ordena uma lista por relevância (usado nas buscas de separação e saída avulsa).
-function searchFilter_(list, raw){
-  const q=norm(raw); if(!q) return list;
-  const tokens=q.split(/\s+/).filter(Boolean);
-  return list.map(it=>({it, s:searchScore_(it,q,tokens)}))
-             .filter(x=>x.s>=0).sort((a,b)=>b.s-a.s).map(x=>x.it);
-}
 
 // Busca: aguarda uma pausa na digitação antes de re-renderizar (evita reconstruir
 // a lista a cada tecla — mais fluido em inventários grandes).

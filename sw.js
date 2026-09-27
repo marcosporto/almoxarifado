@@ -10,6 +10,7 @@ const SHELL = [
   './',
   './index.html',
   './js/utils.js',
+  './js/search.js',
   './manifest.json',
   './icon.svg',
   './logo.svg',

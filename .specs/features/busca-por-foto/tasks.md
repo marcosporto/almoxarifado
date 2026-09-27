@@ -191,16 +191,29 @@ que o navegador já os vê; no Node o teste carrega `js/utils.js` primeiro)
 - Skill: NONE
 
 **Done when**:
-- [ ] `js/search.js` existe com as duas funções **idênticas** às atuais (movidas, não reescritas)
-- [ ] **Equivalência provada** antes/depois sobre centenas de itens sintéticos e consultas
+- [x] `js/search.js` existe com as duas funções **idênticas** às atuais (movidas, não reescritas)
+- [x] **Equivalência provada** antes/depois sobre centenas de itens sintéticos e consultas
       aleatórias (convenção do `TESTING.md`)
-- [ ] `<script src="./js/search.js">` no `index.html` **antes** do `<script>` inline que as usa
-- [ ] `./js/search.js` no `SHELL` do `sw.js` (senão o app quebra offline)
-- [ ] Testes fixando o AND: consulta com uma palavra ausente devolve `-1`; ordem livre das
+- [x] `<script src="./js/search.js">` no `index.html` **antes** do `<script>` inline que as usa
+- [x] `./js/search.js` no `SHELL` do `sw.js` (senão o app quebra offline)
+- [x] Testes fixando o AND: consulta com uma palavra ausente devolve `-1`; ordem livre das
       palavras casa; casamento em código/código de barras domina; `palavrasChave` pontua;
       palavra inteira pesa mais que pedaço; busca vazia devolve a lista inteira
-- [ ] Gate passa: `npm test`
-- [ ] Contagem de testes: total anterior + os novos, nenhum removido
+- [x] Gate passa: `npm test`
+- [x] Contagem de testes: total anterior + os novos, nenhum removido
+
+**Resultado:** 66 testes (48 + 18), 12 suites, 0 falhas. Equivalência: **4.900 comparações,
+0 divergências** contra as originais extraídas de `git show HEAD:index.html` (9 itens curados
+× 30 consultas + 4.000 notas e 600 listas aleatórias). Tags: `utils.js` (415) → `search.js`
+(416) → inline (417). `SHELL` do `sw.js` atualizado. Script inline do `index.html` conferido
+com `node --check` depois da remoção das 26 linhas: 1.062 linhas, sintaxe OK; as 3 chamadas
+(`render`, `renderPickSearch`, `renderSaidaBusca`) preservadas.
+
+**Pesos travados pelos testes** (medidos antes de escrever as asserções, não chutados):
+código/código de barras exato `10000`, começo de código `2000`, começo de descrição `200`,
+palavra inteira `20`, palavra-chave `12`, pedaço de palavra `5`. O caso que motiva o modo
+foto está fixado: `caneta esferografica azul tampa plastico` contra `CANETA ESFEROGRAFICA
+AZUL` devolve **-1**.
 
 **Tests**: unit
 **Gate**: quick
