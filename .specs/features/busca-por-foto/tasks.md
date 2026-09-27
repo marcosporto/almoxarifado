@@ -14,7 +14,7 @@ Verifier, sensor de discriminação).
 **Spec**: `.specs/features/busca-por-foto/spec.md`
 **Design**: não há `design.md` — as decisões técnicas estão na seção "Técnico" da spec,
 seguindo a convenção das outras features deste projeto (`tratamento-foto-ia`).
-**Status**: In Progress — Fases 0, 1 e 2 concluídas (T1-T6). Falta o frontend (T7-T9) e o fechamento (T10-T11).
+**Status**: In Progress — Fases 0 a 3 concluídas (T1-T9). Falta o fechamento (T10 versão v38, T11 docs) e a verificação manual no celular, que depende de publicar.
 
 ---
 
@@ -476,16 +476,28 @@ mensagens; o campo `visto` que vem do backend
 - Skill: NONE
 
 **Done when**:
-- [ ] Offline: botão desabilitado, com aviso de que precisa de internet; busca digitada e
-      leitura de código de barras **continuam funcionando** (BFOTO-14)
-- [ ] IA não identificou: avisa sem inventar item (BFOTO-15)
-- [ ] Identificou mas zero candidatos: mostra **o que a IA viu** e deixa os termos editáveis na
+- [x] Offline: botão apagado (classe `off` pelo `updateNet`), com aviso se insistir; busca
+      digitada e leitura de código de barras **continuam funcionando** (BFOTO-14)
+- [x] IA não identificou: avisa sem inventar item, e **não mexe** na busca que estava na tela
+      (BFOTO-15)
+- [x] Identificou mas zero candidatos: mostra **o que a IA viu** e deixa os termos editáveis na
       barra (BFOTO-16) — é a decisão do usuário sobre falha
-- [ ] Qualquer falha: mensagem clara, lista e busca da tela **preservadas**, nada gravado (BFOTO-17)
-- [ ] Captura nova descarta resposta anterior ainda em voo (BFOTO-18) — verificar com duas
-      capturas rápidas
-- [ ] Verificação manual dos 5 cenários: modo avião; foto de parede vazia; foto de objeto que
-      não existe no cadastro; `GEMINI_API_KEY` apagada temporariamente; duas capturas seguidas
+- [x] Qualquer falha: mensagem clara, lista e busca da tela **preservadas** (o `catch` de
+      propósito não chama `render()`), nada gravado (BFOTO-17)
+- [x] Captura nova descarta resposta anterior ainda em voo (BFOTO-18 — entregue na T7)
+- [ ] ⏳ Verificação manual dos 5 cenários no celular — só possível depois de publicar (T10)
+
+**DEFEITO MEU DA T7, encontrado e corrigido aqui:** o `fotoModo` guardava apenas `json.termos`,
+mas a barra de busca recebia `termos + texto`. Ou seja, o número que o OCR leu na etiqueta ia
+para a tela e **ficava fora da pontuação** — a dominância de código de barras (BFOTO-11, peso
+10000) simplesmente não funcionaria, apesar de ter teste passando na camada pura. Era um bug
+de ligação entre camadas, do tipo que teste de função pura não pega. Agora os dois entram
+juntos na busca **e** na pontuação.
+
+**Efeito colateral bom:** com o OCR dentro da pontuação, a foto de uma etiqueta legível passa a
+funcionar quase como o leitor de código de barras — mesmo quando o objeto em si não é
+reconhecível, o número acha o item. Por isso a condição de "não identifiquei" exige que
+`termos` **e** `texto` estejam vazios, e não só `termos`.
 
 **Tests**: none (ver matriz)
 **Gate**: manual

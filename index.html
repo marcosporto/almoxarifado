@@ -1137,6 +1137,14 @@ function updateNet(){
     ' · <b>'+feitos+'/'+items.length+'</b> inventariados'+
     (pendingCount?' · <span class="badge-pend">'+pendingCount+' p/ sincronizar</span>':'');
   document.getElementById('sync-btn').style.display = pendingCount? 'inline-block':'none';
+  // Busca por foto exige internet (quem reconhece a imagem está na nuvem). Offline, o botão
+  // fica apagado — e continua avisando se a pessoa insistir. A busca por nome e o leitor de
+  // código de barras seguem funcionando normalmente, por serem 100% locais.
+  const btnFoto=document.getElementById('btn-foto-busca');
+  if(btnFoto){
+    btnFoto.classList.toggle('off', !on);
+    btnFoto.title = on ? 'Buscar item pela foto' : 'Buscar por foto precisa de internet';
+  }
 }
 function updateProgress(){
   const total=items.length, feitos=items.filter(i=>i.inventariado).length;
@@ -1243,13 +1251,29 @@ async function buscarPorFoto(input){
     if(json._debugIA) console.log('[busca por foto]', json._debugIA);
     if(!json.ok) throw new Error(json.error || 'falha no servidor');
 
-    fotoModo = { termos: json.termos || '', visto: json.visto || '' };
-    document.getElementById('search-box').value = [json.termos, json.texto].filter(Boolean).join(' ').trim();
+    // As palavras da IA e o texto lido na etiqueta entram JUNTOS na busca. O texto importa
+    // muito: se a IA leu o código de barras impresso, ele vale 10000 pontos na pontuação e
+    // manda o item certo direto para o topo.
+    const busca = [json.termos, json.texto].filter(Boolean).join(' ').trim();
+
+    // Sem nada para procurar = a IA não reconheceu o objeto. O prompt manda ela devolver
+    // vazio em vez de chutar, então isto é resposta honesta, não erro. Não mexe na busca que
+    // já estava na tela.
+    if(!busca){
+      fotoModo = null;
+      avisoFoto('📷 Não consegui identificar o item nesta foto. Tente de novo mais perto, com o item centralizado e boa luz — ou busque pelo nome.', true);
+      return;
+    }
+
+    fotoModo = { termos: busca, visto: json.visto || '' };
+    document.getElementById('search-box').value = busca;
     render();
   }catch(e){
     if(seq !== _fotoBuscaSeq) return;
+    // Falha não pode estragar a tela: o modo foto é desligado, mas a lista e a busca que já
+    // estavam ali continuam como estavam (não chamamos render()). Nada é gravado em lugar nenhum.
     fotoModo = null;
-    avisoFoto('Não foi possível analisar a foto: ' + (e.message || e), true);
+    avisoFoto('📷 Não foi possível analisar a foto: ' + (e.message || e) + '. A busca por nome e o leitor de código continuam funcionando.', true);
   }finally{
     if(seq === _fotoBuscaSeq) _fotoOcupado(false);
   }
