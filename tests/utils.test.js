@@ -10,7 +10,7 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { natCmp, normCod, fmtDate, ymd, esc, fmtDateTime } = require('../js/utils.js');
+const { natCmp, normCod, fmtDate, ymd, esc, fmtDateTime, fmtUnidade } = require('../js/utils.js');
 
 describe('natCmp — ordenação "natural" de textos', () => {
   test('coloca A10 depois de A9 (a ordem alfabética faria o contrário)', () => {
@@ -217,5 +217,37 @@ describe('fmtDateTime — data/hora ISO para "dd/mm/aaaa hh:mm"', () => {
   test('devolve o valor original quando não é data reconhecível', () => {
     assert.equal(fmtDateTime('nao e data'), 'nao e data');
     assert.equal(fmtDateTime('2026-13-45T99:99:99'), '2026-13-45T99:99:99');
+  });
+});
+
+describe('fmtUnidade — "1.0 - PECA" para "Unid.: PECA"', () => {
+  test('mostra só o nome da unidade, sem o código numérico', () => {
+    assert.equal(fmtUnidade('1.0 - PECA'), 'Unid.: PECA');
+    assert.equal(fmtUnidade('2.5 - KG'), 'Unid.: KG');
+  });
+
+  test('funciona quando vem só o nome, sem hífen', () => {
+    assert.equal(fmtUnidade('PECA'), 'Unid.: PECA');
+  });
+
+  test('aceita sem espaço em volta do hífen', () => {
+    assert.equal(fmtUnidade('1.0-KG'), 'Unid.: KG');
+  });
+
+  test('devolve vazio quando não sobra nome', () => {
+    assert.equal(fmtUnidade(''), '');
+    assert.equal(fmtUnidade(null), '');
+    assert.equal(fmtUnidade(undefined), '');
+    assert.equal(fmtUnidade('1.0 - '), '');   // só o código, sem unidade
+    assert.equal(fmtUnidade('-'), '');
+  });
+
+  // ⚠️ DEFEITO CONHECIDO — ver .specs/codebase/CONCERNS.md.
+  // A função pega tudo depois do ÚLTIMO hífen. Se o nome da unidade tiver hífen,
+  // só o pedaço final aparece: "1.0 - CAIXA C-10" vira "Unid.: 10", que engana
+  // quem está conferindo estoque. Corrigir = cortar no PRIMEIRO hífen. Não mudei
+  // junto com a extração de propósito: refatoração não deve alterar comportamento.
+  test('DEFEITO: perde parte do nome quando a unidade contém hífen', () => {
+    assert.equal(fmtUnidade('1.0 - CAIXA C-10'), 'Unid.: 10');   // deveria ser "CAIXA C-10"
   });
 });

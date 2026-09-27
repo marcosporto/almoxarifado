@@ -1462,8 +1462,7 @@ function imgFallback(el){ const fb=el.getAttribute('data-fb'); if(fb && el.src!=
 // fmtDateTime() vive em js/utils.js (testada em tests/utils.test.js)
 // Agora -> "aaaa-mm-ddThh:mm" (para datetime-local). O ymd() saiu para js/utils.js
 function nowLocal(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes()); }
-// "1.0 - PECA" -> "Unid.: PECA" (mostra só o nome da unidade de distribuição)
-function fmtUnidade(u){ if(!u) return ''; const p=String(u).split('-'); const nome=(p.length>1?p[p.length-1]:p[0]).trim(); return nome?'Unid.: '+nome:''; }
+// fmtUnidade() vive em js/utils.js (testada em tests/utils.test.js)
 
 /* ---------- Delegação de eventos ----------
    Em vez de embutir os dados em onclick="fn('valor')" (frágil e inseguro se o

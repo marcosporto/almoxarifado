@@ -56,7 +56,17 @@
     return p(d.getDate()) + '/' + p(d.getMonth() + 1) + '/' + d.getFullYear() + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
   }
 
-  const api = { natCmp, normCod, fmtDate, ymd, esc, fmtDateTime };
+  // "1.0 - PECA" -> "Unid.: PECA" (mostra só o nome da unidade de distribuição).
+  // Pega o trecho DEPOIS do último hífen — ver a ressalva em tests/utils.test.js
+  // sobre unidades cujo próprio nome contém hífen.
+  function fmtUnidade(u) {
+    if (!u) return '';
+    const p = String(u).split('-');
+    const nome = (p.length > 1 ? p[p.length - 1] : p[0]).trim();
+    return nome ? 'Unid.: ' + nome : '';
+  }
+
+  const api = { natCmp, normCod, fmtDate, ymd, esc, fmtDateTime, fmtUnidade };
 
   // No navegador: vira global, como era antes. No Node/Vitest: vira export.
   Object.assign(global, api);
