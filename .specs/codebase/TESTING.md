@@ -40,9 +40,10 @@ Verificação **manual** continua necessária para o que os testes não cobrem:
 ## Test Coverage Matrix
 | Code Layer | Required Test Type | Location Pattern | Status |
 | ---------- | ------------------ | ---------------- | ------ |
-| `natCmp`, `normCod`, `fmtDate`, `ymd` | unit | `tests/utils.test.js` | ✅ 20 testes |
+| `natCmp`, `normCod`, `fmtDate`, `ymd` | unit | `tests/utils.test.js` | ✅ |
+| `esc`, `fmtDateTime`, `fmtUnidade` | unit | `tests/utils.test.js` | ✅ (total: 38 testes) |
 | `parseImport` | unit | `tests/` | ❌ **não é pura** — lê o DOM (`linhas()`) e a variável global `items`. Precisa receber os dados por parâmetro antes de poder ser testada. |
-| `esc`, `fmtDateTime`, `fmtUnidade`, `driveId` | unit | `tests/` | ❌ são puras e fáceis; ainda no `index.html`. `esc()` é a defesa contra XSS — vale prioridade. |
+| `driveId`, `driveThumb`, `driveLh3`, `driveFull` | unit | `tests/` | ❌ são puras; ainda no `index.html`. `driveId()` extrai o ID do arquivo por regex — vale teste. |
 | Helpers do backend (`isoDate_`, `parseYmd_`, `buildColMap_`, `aliases_`) | unit | `tests/` | ❌ vivem no `apps-script.gs`, que é colado inteiro no editor do Apps Script. Testá-los exige decidir antes como dividir esse arquivo (ver ROADMAP). |
 | Sincronização / IndexedDB (`mergeWithPending`, `syncNow`) | integration | `tests/` | ❌ maior risco do projeto (perda de dados conferidos offline) e o mais caro de testar. |
 | Fluxos de UI (conferir, separação, consumo) | e2e (opcional) | — | ❌ |
@@ -54,9 +55,18 @@ Verificação **manual** continua necessária para o que os testes não cobrem:
 | Full | antes de publicar | `npm test` + roteiro manual acima |
 | Build | — | (não há etapa de build) |
 
+## Método usado nas extrações
+Antes de mover cada função, a versão nova foi comparada com a original sobre centenas
+ou milhares de entradas (incluindo aleatórias) para provar que a saída é idêntica.
+Refatoração não pode mudar comportamento — e num projeto sem testes prévios, essa
+comparação é a única forma de saber. Vale repetir nas próximas.
+
 ## Próximo passo sugerido
-As funções puras que sobraram no `index.html` (`esc`, `fmtDateTime`, `fmtUnidade`,
-`driveId`) são o caminho de menor atrito: mesma extração já feita, mesmo arquivo de
-teste. Depois delas, `parseImport` — que exige uma refatoração pequena (receber as
-duas listas por parâmetro em vez de ler o DOM) e é onde mora risco real de importar
+Sobraram no `index.html` as funções de Drive (`driveId` e as três que dependem dela).
+Depois delas, `parseImport` — que exige uma refatoração pequena (receber as duas
+listas por parâmetro em vez de ler o DOM) e é onde mora risco real de importar
 requisição errada.
+
+> Os testes escritos até aqui já encontraram **dois problemas reais** que a verificação
+> manual não pegou: o código só de zeros em `normCod()` e a unidade com hífen em
+> `fmtUnidade()`. Ambos estão em `CONCERNS.md`.

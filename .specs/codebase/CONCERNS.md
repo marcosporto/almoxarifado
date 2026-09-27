@@ -61,6 +61,18 @@
   zeros ("0", "000") vira string vazia e passa a casar com código vazio. Corrigir isso
   é decisão de produto — o teste documenta o comportamento atual, não o aprova.
 
+**Unidade com hífen no nome aparece cortada na tela:**
+
+- Symptoms: um item com unidade `"1.0 - CAIXA C-10"` é exibido como `"Unid.: 10"`.
+- Files: `js/utils.js` → `fmtUnidade()`.
+- Root cause: a função corta no **último** hífen, não no primeiro.
+- Impact: quem confere estoque lê a unidade errada. Silencioso — não dá erro.
+- Fix approach: cortar no primeiro hífen. Antes de mudar, conferir na planilha real
+  se alguma unidade cadastrada tem hífen no nome (se nenhuma tiver, o defeito é
+  latente e a correção é barata).
+- Descoberto em 2026-09-26 ao escrever `tests/utils.test.js`; o teste atual fixa o
+  comportamento errado de propósito, para a correção aparecer como mudança consciente.
+
 ## Dependencies at Risk
 
 **Bibliotecas via CDN (jsDelivr):**
@@ -94,7 +106,8 @@
 
 **Cobertura parcial (era zero até 2026-09-26):**
 
-- What IS tested: `natCmp`, `normCod`, `fmtDate`, `ymd` — 20 testes em `tests/utils.test.js`.
+- What IS tested: `natCmp`, `normCod`, `fmtDate`, `ymd`, `esc`, `fmtDateTime`,
+  `fmtUnidade` — 38 testes em `tests/utils.test.js`.
 - What's not tested: todo o resto. Em especial a lógica de sincronização offline
   (`syncNow`, `mergeWithPending`) e o parser de importação (`parseImport`).
 - Risk: uma mudança pode quebrar a sincronização e só ser percebida em produção, com
