@@ -10,7 +10,7 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { natCmp, normCod, fmtDate } = require('../js/utils.js');
+const { natCmp, normCod, fmtDate, ymd } = require('../js/utils.js');
 
 describe('natCmp — ordenação "natural" de textos', () => {
   test('coloca A10 depois de A9 (a ordem alfabética faria o contrário)', () => {
@@ -96,5 +96,36 @@ describe('fmtDate — "aaaa-mm-dd" para "dd/mm/aaaa"', () => {
   // Registrado para que a falha apareça aqui e não na tela do usuário.
   test('estoura se receber número em vez de texto (comportamento atual)', () => {
     assert.throws(() => fmtDate(20260926), TypeError);
+  });
+});
+
+describe('ymd — Date para "aaaa-mm-dd" (formato do <input type="date">)', () => {
+  test('converte uma data comum', () => {
+    // Atenção: em JavaScript o mês começa em 0, então 8 = setembro.
+    assert.equal(ymd(new Date(2026, 8, 26)), '2026-09-26');
+  });
+
+  test('completa mês e dia com zero à esquerda', () => {
+    assert.equal(ymd(new Date(2026, 0, 5)), '2026-01-05');
+    assert.equal(ymd(new Date(2026, 11, 31)), '2026-12-31');
+  });
+
+  // Este é o motivo de a função existir em vez de um simples toISOString():
+  // toISOString() converte para UTC e, no fuso do Brasil, uma data depois das
+  // 21h viraria o dia seguinte. ymd() lê os componentes locais, então não pula.
+  test('usa a data local, não UTC — não pula o dia perto da meia-noite', () => {
+    assert.equal(ymd(new Date(2026, 8, 26, 23, 59)), '2026-09-26');
+    assert.equal(ymd(new Date(2026, 8, 26, 0, 1)), '2026-09-26');
+  });
+
+  test('sobrevive à virada de ano', () => {
+    assert.equal(ymd(new Date(2026, 11, 31, 23, 59)), '2026-12-31');
+    assert.equal(ymd(new Date(2027, 0, 1, 0, 0)), '2027-01-01');
+  });
+
+  // ATENÇÃO: a função não valida a entrada; espera receber um Date de verdade.
+  test('estoura se não receber um Date (comportamento atual)', () => {
+    assert.throws(() => ymd('2026-09-26'), TypeError);
+    assert.throws(() => ymd(null), TypeError);
   });
 });
