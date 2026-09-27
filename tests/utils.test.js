@@ -10,7 +10,7 @@
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { natCmp, normCod } = require('../js/utils.js');
+const { natCmp, normCod, fmtDate } = require('../js/utils.js');
 
 describe('natCmp — ordenação "natural" de textos', () => {
   test('coloca A10 depois de A9 (a ordem alfabética faria o contrário)', () => {
@@ -67,5 +67,34 @@ describe('normCod — normalização de código de item', () => {
   test('código só de zeros vira vazio (comportamento atual, ver ressalva)', () => {
     assert.equal(normCod('0'), '');
     assert.equal(normCod('000'), '');
+  });
+});
+
+describe('fmtDate — "aaaa-mm-dd" para "dd/mm/aaaa"', () => {
+  test('converte a data no formato que o app recebe da planilha', () => {
+    assert.equal(fmtDate('2026-09-26'), '26/09/2026');
+    assert.equal(fmtDate('2026-01-01'), '01/01/2026');
+  });
+
+  test('devolve vazio para nulo, indefinido e vazio', () => {
+    assert.equal(fmtDate(''), '');
+    assert.equal(fmtDate(null), '');
+    assert.equal(fmtDate(undefined), '');
+  });
+
+  test('devolve o valor original quando não tem as três partes', () => {
+    assert.equal(fmtDate('2026-09'), '2026-09');
+    assert.equal(fmtDate('sem data'), 'sem data');
+  });
+
+  // ATENÇÃO: a função só reposiciona os pedaços, não valida nada.
+  test('não valida a data: mês 13 e dia 45 passam batido (comportamento atual)', () => {
+    assert.equal(fmtDate('2026-13-45'), '45/13/2026');
+  });
+
+  // ATENÇÃO: se a planilha devolver a data como número em vez de texto, quebra.
+  // Registrado para que a falha apareça aqui e não na tela do usuário.
+  test('estoura se receber número em vez de texto (comportamento atual)', () => {
+    assert.throws(() => fmtDate(20260926), TypeError);
   });
 });
