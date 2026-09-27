@@ -71,10 +71,14 @@ var PROMPT_TRATAMENTO = [
   'never a feature of the image. It must NOT be a dark or muddy grey blob, a smudge or smear,',
   'a hard-edged shape, a long shadow cast off to one side, a shadow detached from the product,',
   'or a mirror reflection.',
-  'Finally, crop and scale the ORIGINAL pixels of the photographed product so it is centered',
-  'and occupies about 85% of the square frame, leaving a thin white margin around it and room',
-  'for the contact shadow underneath. This is strictly a crop-and-resize operation: making the',
-  'product bigger must NEVER mean redrawing it.',
+  'FRAMING — crop tightly. Crop in close on the ORIGINAL pixels of the photographed product so',
+  'that it is centered and FILLS the square frame: its longest dimension must span about 90% of',
+  'the frame width, leaving only a thin white margin on the sides and a little room for the',
+  'contact shadow underneath. A result where the product sits small in the middle of a large',
+  'empty white area is WRONG — crop closer until the product dominates the frame.',
+  'This is strictly a CROP: you are choosing a tighter rectangle around the existing product and',
+  'scaling it up. Cropping closer must NEVER mean redrawing, restyling or re-rendering the item —',
+  'the pixels stay the ones photographed, only the framing changes.',
   'Adjust only global color balance and sharpness, and only enough to make the real details',
   'easier to read. Apart from the soft contact shadow, do not add, remove or invent anything.'
 ].join(' ');
