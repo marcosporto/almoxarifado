@@ -410,6 +410,9 @@
 <script src="https://accounts.google.com/gsi/client" async></script>
 <script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js" integrity="sha384-c9d8RFSL+u3exBOJ4Yp3HUJXS4znl9f+z66d1y54ig+ea249SpqR+w1wyvXz/lk+" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" integrity="sha384-vtjasyidUo0kW94K5MXDXntzOJpQgBKXmE7e2Ga4LG0skTTLeBi97eFAXsqewJjw" crossorigin="anonymous"></script>
+<!-- Funcoes puras do app, extraidas para poderem ser testadas pelo Vitest.
+     Precisa ser carregado ANTES do bloco de codigo principal, logo abaixo. -->
+<script src="./js/utils.js"></script>
 <script>
 /* =========================================================================
    Almoxarifado UDESC — app offline-first
@@ -1217,7 +1220,7 @@ function openImport(target){
   }
   openModal('import');
 }
-function normCod(c){ return String(c==null?'':c).trim().replace(/^0+/,''); }   // ignora zeros à esquerda
+// normCod(), natCmp(), fmtDate() e ymd() agora vivem em js/utils.js (testadas por Vitest)
 function findItemByCodigo(cod){
   return items.find(it=>it.codigo===cod) || items.find(it=>normCod(it.codigo)===normCod(cod));
 }
@@ -1455,13 +1458,10 @@ function driveLh3(u){ const id=driveId(u); return id?'https://lh3.googleusercont
 function driveFull(u){ const id=driveId(u); return id?'https://lh3.googleusercontent.com/d/'+id+'=w1600':u; } // abre a imagem direta (sem pedir login)
 // se o link "thumbnail" falhar, tenta o lh3 uma vez antes de desistir
 function imgFallback(el){ const fb=el.getAttribute('data-fb'); if(fb && el.src!==fb){ el.removeAttribute('data-fb'); el.src=fb; } else { el.onerror=null; } }
-function natCmp(a,b){ return String(a||'').localeCompare(String(b||''),'pt',{numeric:true,sensitivity:'base'}); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-function fmtDate(iso){ if(!iso) return ''; const p=iso.split('-'); return p.length===3? p[2]+'/'+p[1]+'/'+p[0] : iso; }
 // Data/hora ISO -> "dd/mm/aaaa hh:mm"
 function fmtDateTime(iso){ if(!iso) return ''; const d=new Date(iso); if(isNaN(d)) return String(iso); const p=n=>String(n).padStart(2,'0'); return p(d.getDate())+'/'+p(d.getMonth()+1)+'/'+d.getFullYear()+' '+p(d.getHours())+':'+p(d.getMinutes()); }
-// Date -> "aaaa-mm-dd" (para input date) ; agora -> "aaaa-mm-ddThh:mm" (para datetime-local)
-function ymd(d){ const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate()); }
+// Agora -> "aaaa-mm-ddThh:mm" (para datetime-local). O ymd() saiu para js/utils.js
 function nowLocal(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes()); }
 // "1.0 - PECA" -> "Unid.: PECA" (mostra só o nome da unidade de distribuição)
 function fmtUnidade(u){ if(!u) return ''; const p=String(u).split('-'); const nome=(p.length>1?p[p.length-1]:p[0]).trim(); return nome?'Unid.: '+nome:''; }

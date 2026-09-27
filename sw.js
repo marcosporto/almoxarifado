@@ -2,13 +2,14 @@
  * Cacheia o "app shell" para funcionamento offline.
  * Os dados do inventário NÃO passam por aqui: ficam no IndexedDB (ver index.html).
  */
-const CACHE = 'almox-udesc-v35';
+const CACHE = 'almox-udesc-v36';
 // A biblioteca do Google (accounts.google.com/gsi/client) NÃO entra aqui de propósito:
 // o Google a serve de forma que quebraria o addAll(); e o login exige internet de qualquer
 // modo. Depois de logado, o app funciona offline pela sessão guardada no IndexedDB.
 const SHELL = [
   './',
   './index.html',
+  './js/utils.js',
   './manifest.json',
   './icon.svg',
   './logo.svg',
