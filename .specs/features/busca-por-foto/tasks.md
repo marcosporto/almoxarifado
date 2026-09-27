@@ -14,7 +14,7 @@ Verifier, sensor de discriminação).
 **Spec**: `.specs/features/busca-por-foto/spec.md`
 **Design**: não há `design.md` — as decisões técnicas estão na seção "Técnico" da spec,
 seguindo a convenção das outras features deste projeto (`tratamento-foto-ia`).
-**Status**: Draft
+**Status**: In Progress — T1 ✅ (portão aberto: HTTP 200)
 
 ---
 
@@ -111,11 +111,19 @@ a `GEMINI_API_KEY` consegue enviar imagem via `inline_data` e receber 200.
 - Skill: NONE
 
 **Done when**:
-- [ ] A função existe, espelhando o formato de log de `diagnosticarGeminiTexto()`
-- [ ] Rodada no editor, o Log mostra **HTTP 200**, o nome do modelo e o início da resposta
-- [ ] A resposta descreve plausivelmente a imagem de teste embutida
-- [ ] ⛔ **Se o código for ≠ 200, PARAR a feature** e reavaliar com o usuário (é o 429 do
-      `STATE.md` se repetindo em outro caminho) — não seguir para T2
+- [x] A função existe, espelhando o formato de log de `diagnosticarGeminiTexto()`
+- [x] Rodada no editor, o Log mostra **HTTP 200**, o nome do modelo e o início da resposta
+- [x] A resposta descreve plausivelmente a foto de teste
+- [x] ⛔ Portão: código foi **200** — feature liberada para seguir
+
+**Resultado medido (2026-09-26 22:54):** `gemini-2.5-flash-lite`, **HTTP 200**. Foto de teste
+`14591011_1790365368015.png` (image/png, 189 KB) → *"Um limpador de janelas com cabo longo."*
+Tokens: 274 de entrada (16 de texto + **258 de imagem**) + 10 de saída = **US$ 0,00003 por busca**.
+O 429 que travou o tratamento de foto **não** atinge este caminho, como a spec previa.
+
+**Desvio do planejado:** o `tasks.md` dizia "imagem de teste embutida"; usei a primeira foto da
+pasta do Drive. Motivo: prova o endpoint **e** mostra o acerto em foto real do almoxarifado.
+Somente leitura — não chama `getImageFolder_()`, que criaria a pasta se não existisse.
 
 **Tests**: none (sonda de API externa; roda no editor do Apps Script)
 **Gate**: manual

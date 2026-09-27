@@ -976,6 +976,67 @@ function diagnosticarGeminiTexto() {
 }
 
 /**
+ * Diagnóstico: confirma que a GEMINI_API_KEY consegue mandar IMAGEM na ENTRADA do modelo de
+ * TEXTO (campo inline_data) e receber 200. Rode pelo editor (▶) ANTES de construir a busca
+ * por foto — é o portão da feature.
+ *
+ * POR QUE ISTO EXISTE: o tratamento de foto ficou preso em HTTP 429
+ * (generate_content_free_tier_requests, limit: 0) nos modelos de IMAGEM, mesmo com faturamento
+ * ativo e vinculado — bug do lado do Google (ver .specs/project/STATE.md, 2026-07-26). Imagem
+ * na ENTRADA de modelo de TEXTO é outro caminho e deve funcionar, mas "deve" não é "funciona".
+ * Este teste custa segundos; descobrir no fim custaria a feature.
+ *
+ * Usa como cobaia a primeira foto da pasta de imagens do almoxarifado, então também mostra se a
+ * IA descreve BEM uma foto real sua. Só LÊ o Drive — não cria nem altera nada. De propósito NÃO
+ * chama getImageFolder_(), que CRIA a pasta quando ela não existe: diagnóstico não deve ter
+ * efeito colateral.
+ */
+function diagnosticarGeminiVisao() {
+  var props = PropertiesService.getScriptProperties();
+  var key = props.getProperty('GEMINI_API_KEY');
+  Logger.log('1) Chave configurada? ' + (key ? 'SIM (' + key.length + ' caracteres)' : 'NÃO'));
+  if (!key) return;
+
+  var folderId = props.getProperty('IMG_FOLDER_ID');
+  if (!folderId) {
+    Logger.log('2) Sem IMG_FOLDER_ID — nenhuma foto foi enviada ainda. Cadastre a foto de um item pelo app e rode de novo.');
+    return;
+  }
+  var blob = null, nomeArquivo = '';
+  try {
+    var files = DriveApp.getFolderById(folderId).getFiles();
+    if (files.hasNext()) { var f = files.next(); nomeArquivo = f.getName(); blob = f.getBlob(); }
+  } catch (e) {
+    Logger.log('2) Não consegui ler a pasta de imagens: ' + e);
+    return;
+  }
+  if (!blob) {
+    Logger.log('2) A pasta de imagens está vazia. Cadastre a foto de um item pelo app e rode de novo.');
+    return;
+  }
+  Logger.log('2) Foto de teste: ' + nomeArquivo + ' (' + blob.getContentType() + ', ' + blob.getBytes().length + ' bytes)');
+
+  // Modelo trocável sem reimplantar; vazio = o mesmo das palavras-chave (BFOTO-07).
+  var model = props.getProperty('GEMINI_VISION_MODEL') || GEMINI_TEXT_MODEL;
+  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
+    model + ':generateContent?key=' + encodeURIComponent(key);
+  var payload = {
+    contents: [{
+      parts: [
+        { text: 'Descreva em português, em poucas palavras, que objeto aparece nesta foto.' },
+        { inline_data: { mime_type: blob.getContentType(), data: Utilities.base64Encode(blob.getBytes()) } }
+      ]
+    }]
+  };
+  var resp = UrlFetchApp.fetch(url, {
+    method: 'post', contentType: 'application/json',
+    payload: JSON.stringify(payload), muteHttpExceptions: true
+  });
+  Logger.log('3) Modelo: ' + model + ' | Código HTTP: ' + resp.getResponseCode() + '  (200 = OK)');
+  Logger.log('4) Resposta (início): ' + resp.getContentText().substring(0, 800));
+}
+
+/**
  * Orquestra a geração: pega só os itens SEM palavras-chave (idempotente), processa em lotes,
  * grava na coluna, para com segurança perto do limite de tempo e devolve um resumo.
  */

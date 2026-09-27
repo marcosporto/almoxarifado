@@ -50,7 +50,7 @@ Toda ambiguidade está resolvida aqui — nada fica implícito.
 | Estratégia de casamento | **A IA descreve, o app procura** — possivelmente definitiva | Decisão do usuário, reafirmada depois de o agente recomendar a alternativa duas vezes: entregar isto, medir no uso real e ficar com ela se servir. O agente registrou que a alternativa (IA escolhe no catálogo) tende a acertar mais e que a `photoScore_()` seria descartada numa migração; o usuário optou por assumir esse custo eventual em troca de menos código agora, resposta mais rápida e correções sem programador (ver "O ciclo que conserta sozinho"). | ✅ sim |
 | Comportamento quando falha | **Mostrar o que a IA viu + deixar editar** | O usuário entende *por que* falhou e continua na mão a partir dali, em vez de levar um "nada encontrado" opaco. | ✅ sim |
 | Onde a chamada à IA acontece | **No backend (Apps Script)** | A `GEMINI_API_KEY` não pode aparecer no `index.html`, que é público. Mesma regra da R7 do tratamento de foto. | ✅ sim (regra do projeto) |
-| Modelo | `gemini-2.5-flash-lite`, o **mesmo** das palavras-chave | Aceita imagem na entrada; é o caminho de TEXTO, que nunca sofreu o bug de cota que matou o tratamento de foto. Trocável por propriedade (BFOTO-07). | ⚠️ confirmar com BFOTO-21 antes de construir |
+| Modelo | `gemini-2.5-flash-lite`, o **mesmo** das palavras-chave | Aceita imagem na entrada; é o caminho de TEXTO, que nunca sofreu o bug de cota que matou o tratamento de foto. Trocável por propriedade (BFOTO-07). | ✅ **CONFIRMADO em 2026-09-26**: HTTP 200 na conta real, 258 tokens de imagem, descrição correta de foto do almoxarifado |
 | Tamanho da foto enviada | **384 px**, reusando `compress()` | Em até 384 px a cobrança é fixa em 258 tokens. Para "isso é uma caneta azul" não precisa de nitidez de catálogo. | ✅ sim |
 | Interruptor liga/desliga (tipo `TRATAR_FOTO`) | **Não criar** | Aqui nada é gravado nem alterado: o pior caso é uma busca falhar. A ausência da `GEMINI_API_KEY` já desliga naturalmente, com aviso. | assumido |
 | Teto de candidatos exibidos | **12** | Acima disso é ruído: o objetivo é escolher entre poucos, não filtrar uma lista. | assumido |
@@ -377,7 +377,7 @@ no futuro — mas ela não é necessária para esta feature funcionar.
 | BFOTO-18 | Captura nova descarta resposta antiga | P1 falhar bem | Design | Pending |
 | BFOTO-19 | Diagnóstico no padrão `_debugIA` | P1 falhar bem | Design | Pending |
 | BFOTO-20 | Teto de 12 candidatos, ordenados | P1 câmera | Design | Pending |
-| BFOTO-21 | `diagnosticarGeminiVisao()` confirma a visão antes de construir | P1 diagnóstico | Design | Pending |
+| BFOTO-21 | `diagnosticarGeminiVisao()` confirma a visão antes de construir | P1 diagnóstico | Execute | ✅ Verified |
 | BFOTO-22 | `APP_VERSION` e `CACHE` sobem juntos para v38 | P1 câmera | Design | Pending |
 
 **Formato de ID:** `BFOTO-NN`
