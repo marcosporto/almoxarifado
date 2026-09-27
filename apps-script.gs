@@ -101,6 +101,42 @@ var PROMPT_KW = [
   'Itens:'
 ].join(' ');
 
+// ====== Busca de item por foto (VISÃO) ======
+// A pessoa aponta a câmera para um item, a IA diz em palavras o que está vendo, e o app
+// procura essas palavras no cadastro com a pontuação do modo foto (ver js/search.js).
+// Usa a MESMA GEMINI_API_KEY e o MESMO endpoint das palavras-chave: imagem entra como
+// `inline_data` na entrada de um modelo de TEXTO. Confirmado na conta real em 2026-09-26
+// (HTTP 200) — o bug de cota que travou o tratamento de foto atinge só os modelos que
+// GERAM imagem, não os que a recebem. Ver .specs/features/busca-por-foto/.
+// Modelo trocável sem reimplantar pela propriedade GEMINI_VISION_MODEL.
+//
+// Preço de referência do flash-lite (AI Studio, set/2026), usado só para a ESTIMATIVA de
+// custo do _debugIA. Se a tabela do Google mudar, este número desatualiza — a contagem de
+// tokens, que vem da própria resposta da API, continua correta de qualquer forma.
+var GEMINI_USD_POR_MILHAO_ENTRADA = 0.10;
+var GEMINI_USD_POR_MILHAO_SAIDA = 0.40;
+// Prompt "ancorado", no mesmo espírito do PROMPT_KW: descreve o que ESTÁ na foto e cala a
+// boca quando não sabe. Chutar "marca X" faria o app mostrar o item errado com confiança,
+// que é pior que não achar nada.
+var PROMPT_VISAO = [
+  'Você recebe a foto de UM item de um almoxarifado (materiais de escritório, limpeza,',
+  'manutenção, elétrica, hidráulica, ferramentas).',
+  'Sua tarefa é dizer em PALAVRAS o que está na foto, para que um sistema de busca encontre',
+  'esse item num cadastro de estoque.',
+  'Baseie-se SOMENTE no que é visível. NÃO invente marca, modelo, voltagem, capacidade,',
+  'medida nem material que você não consiga ver. Se não tiver certeza do que é o objeto,',
+  'devolva os campos VAZIOS — não achar nada é melhor que apontar o item errado.',
+  'Responda com UM ÚNICO objeto JSON, e nada além dele: nem texto antes, nem texto depois,',
+  'nem um segundo objeto. O objeto tem exatamente três campos, todos string:',
+  '"visto" = frase curta em português dizendo o que é, no máximo 8 palavras.',
+  '"termos" = de 3 a 8 palavras de busca em português, minúsculas, separadas por espaço:',
+  'o nome do objeto, sinônimos e nome popular, a categoria, e a cor quando ela ajudar a',
+  'distinguir. Sem vírgula, sem artigo, sem plural desnecessário.',
+  '"texto" = números, códigos e palavras IMPRESSAS que você consiga ler na etiqueta ou na',
+  'embalagem, no máximo 6 palavras; deixe vazio se não houver nada legível.',
+  'Quando não reconhecer o objeto, devolva esse mesmo único objeto com os três campos vazios.'
+].join(' ');
+
 // ====== Login com Google (autenticação) ======
 // Client ID criado no Google Cloud (NÃO é secreto — também fica visível no index.html).
 var CLIENT_ID = '768100742493-h1v8i5u47aip75rbcv52uvuej4o7v2mr.apps.googleusercontent.com';
@@ -623,13 +659,18 @@ function padronizarPlanilha() {
 function doPost(e) {
   var lock = LockService.getScriptLock();
   try {
-    lock.waitLock(30000);
     var body = JSON.parse(e.postData.contents);
     var action = body.action || 'pushItem';
 
     var auth = requireAuth_(body.token);   // bloqueia gravação sem crachá válido + autorizado
     body._email = auth.email;              // e-mail do autor, para registrar autoria
 
+    // A busca por foto NÃO grava nada e a chamada à IA leva alguns segundos. Por isso ela
+    // fica FORA do lock, e o waitLock só acontece depois daqui: segurar o lock durante uma
+    // busca travaria a sincronização de todos os outros usuários enquanto a IA responde.
+    if (action === 'buscarPorFoto') return jsonOut_(buscarPorFoto_(body));
+
+    lock.waitLock(30000);
     if (action === 'pushItem')      return jsonOut_(pushItem_(body));
     if (action === 'uploadImages')  return jsonOut_(uploadImages_(body));
     if (action === 'deleteImage')   return jsonOut_(deleteImage_(body));
@@ -976,20 +1017,24 @@ function diagnosticarGeminiTexto() {
 }
 
 /**
- * Diagnóstico: confirma que a GEMINI_API_KEY consegue mandar IMAGEM na ENTRADA do modelo de
- * TEXTO (campo inline_data) e receber 200. Rode pelo editor (▶) ANTES de construir a busca
- * por foto — é o portão da feature.
+ * Diagnóstico da busca por foto. Rode pelo editor (▶) para ver, numa foto real do seu
+ * almoxarifado, o que a IA entende e quais termos ela devolve para a busca.
  *
- * POR QUE ISTO EXISTE: o tratamento de foto ficou preso em HTTP 429
- * (generate_content_free_tier_requests, limit: 0) nos modelos de IMAGEM, mesmo com faturamento
- * ativo e vinculado — bug do lado do Google (ver .specs/project/STATE.md, 2026-07-26). Imagem
- * na ENTRADA de modelo de TEXTO é outro caminho e deve funcionar, mas "deve" não é "funciona".
- * Este teste custa segundos; descobrir no fim custaria a feature.
+ * Chama o MESMO caminho do app (buscarPorFoto_ → descreverFotoIA_), com o prompt de verdade.
+ * Serve para (a) conferir que a chave e o modelo continuam respondendo, (b) avaliar a
+ * qualidade dos termos antes e depois de mexer no prompt, e (c) ver o custo real por busca.
+ * A única parte que fica de fora é a autenticação do doPost, que só o app exercita.
  *
- * Usa como cobaia a primeira foto da pasta de imagens do almoxarifado, então também mostra se a
- * IA descreve BEM uma foto real sua. Só LÊ o Drive — não cria nem altera nada. De propósito NÃO
- * chama getImageFolder_(), que CRIA a pasta quando ela não existe: diagnóstico não deve ter
- * efeito colateral.
+ * POR QUE NASCEU: o tratamento de foto ficou preso em HTTP 429
+ * (generate_content_free_tier_requests, limit: 0) nos modelos que GERAM imagem, mesmo com
+ * faturamento ativo — bug do lado do Google (ver .specs/project/STATE.md, 2026-07-26). Mandar
+ * imagem na ENTRADA de um modelo de TEXTO é outro caminho, e esta função existia para provar
+ * isso antes de construir a feature em cima da suposição. Provado em 2026-09-26: HTTP 200,
+ * 258 tokens de imagem.
+ *
+ * Usa como cobaia a primeira foto da pasta de imagens do almoxarifado. Só LÊ o Drive — não cria
+ * nem altera nada. De propósito NÃO chama getImageFolder_(), que CRIA a pasta quando ela não
+ * existe: diagnóstico não deve ter efeito colateral.
  */
 function diagnosticarGeminiVisao() {
   var props = PropertiesService.getScriptProperties();
@@ -1016,24 +1061,222 @@ function diagnosticarGeminiVisao() {
   }
   Logger.log('2) Foto de teste: ' + nomeArquivo + ' (' + blob.getContentType() + ', ' + blob.getBytes().length + ' bytes)');
 
-  // Modelo trocável sem reimplantar; vazio = o mesmo das palavras-chave (BFOTO-07).
-  var model = props.getProperty('GEMINI_VISION_MODEL') || GEMINI_TEXT_MODEL;
-  var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
-    model + ':generateContent?key=' + encodeURIComponent(key);
-  var payload = {
-    contents: [{
-      parts: [
-        { text: 'Descreva em português, em poucas palavras, que objeto aparece nesta foto.' },
-        { inline_data: { mime_type: blob.getContentType(), data: Utilities.base64Encode(blob.getBytes()) } }
-      ]
-    }]
-  };
-  var resp = UrlFetchApp.fetch(url, {
-    method: 'post', contentType: 'application/json',
-    payload: JSON.stringify(payload), muteHttpExceptions: true
+  // Chama o MESMO caminho que o app vai chamar (ação buscarPorFoto → descreverFotoIA_), em vez
+  // de montar uma requisição paralela: assim o diagnóstico testa o código de produção, com o
+  // prompt de verdade. A única parte que fica de fora é a autenticação do doPost, que só o app
+  // consegue exercitar.
+  var r = buscarPorFoto_({
+    image: { data: Utilities.base64Encode(blob.getBytes()), mime: blob.getContentType() }
   });
-  Logger.log('3) Modelo: ' + model + ' | Código HTTP: ' + resp.getResponseCode() + '  (200 = OK)');
-  Logger.log('4) Resposta (início): ' + resp.getContentText().substring(0, 800));
+
+  Logger.log('3) Diagnóstico da IA: ' + r._debugIA);
+  if (!r.ok) {
+    Logger.log('4) FALHOU: ' + r.error);
+    return;
+  }
+  Logger.log('4) O que a IA viu: "' + r.visto + '"');
+  Logger.log('5) Termos de busca: "' + r.termos + '"');
+  Logger.log('6) Texto lido na etiqueta: "' + r.texto + '"');
+  if (!r.termos) {
+    Logger.log('   (termos vazios = a IA não reconheceu o objeto; é resposta honesta, não erro)');
+    return;
+  }
+
+  // O nome do arquivo começa com o código do item (ver uploadImages_), então dá para conferir
+  // se os termos casam com a linha do item que a foto REALMENTE representa. É a pergunta que
+  // importa: descrever bem não serve de nada se as palavras não existirem no cadastro.
+  var codigo = String(nomeArquivo).split('_')[0];
+  Logger.log('7) A foto é do item de código ' + codigo + '. Conferindo contra a planilha:');
+  var linha = linhaDoItem_(codigo);
+  if (!linha) {
+    Logger.log('   não achei esse código na aba ' + SHEET_NAME + ' (foto antiga? item removido?)');
+    return;
+  }
+  Logger.log('   Descrição:      ' + linha.descricao);
+  Logger.log('   Palavras-chave: ' + linha.palavrasChave);
+
+  // Casamento por palavra, sem acento e minúsculo — a mesma ideia do norm() do frontend.
+  var alvo = semAcento_(linha.descricao + ' ' + linha.palavrasChave + ' ' + linha.codigoBarras);
+  var termos = semAcento_(r.termos).split(/\s+/).filter(String);
+  var casaram = [], faltaram = [];
+  termos.forEach(function (t) { (alvo.indexOf(t) >= 0 ? casaram : faltaram).push(t); });
+  Logger.log('8) Termos que CASAM com este item (' + casaram.length + '/' + termos.length + '): ' + casaram.join(', '));
+  Logger.log('   Termos que não casam: ' + (faltaram.join(', ') || '(nenhum)'));
+  Logger.log(casaram.length ? '   => o item seria encontrado. Quanto mais termos casam, mais alto ele fica.'
+                            : '   => o item NÃO seria encontrado. Acrescente estes termos na coluna Palavras-chave dele.');
+}
+
+// Minúsculas e sem acento, para comparar texto. Espelha o norm() do js/utils.js; existe em
+// separado porque o backend não compartilha código com o frontend (o .gs é colado no editor).
+function semAcento_(s) {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
+// Lê a linha de um item pelo código, SEM efeito colateral: não usa getSheet_(), que cria e
+// normaliza cabeçalhos. Devolve { descricao, palavrasChave, codigoBarras } ou null.
+function linhaDoItem_(codigo) {
+  var sheet = SpreadsheetApp.getActive().getSheetByName(SHEET_NAME);
+  if (!sheet || sheet.getLastRow() < 2) return null;
+  var valores = sheet.getDataRange().getValues();
+  var col = buildColMap_(valores[0]);
+  if (col.codigo === undefined) return null;
+  var alvo = String(codigo).replace(/^0+/, '');
+  for (var i = 1; i < valores.length; i++) {
+    if (String(valores[i][col.codigo]).trim().replace(/^0+/, '') === alvo) {
+      return {
+        descricao:      col.descricao      === undefined ? '' : String(valores[i][col.descricao]),
+        palavrasChave:  col.palavrasChave  === undefined ? '' : String(valores[i][col.palavrasChave]),
+        codigoBarras:   col.codigoBarras   === undefined ? '' : String(valores[i][col.codigoBarras])
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * Recorta o PRIMEIRO objeto JSON completo de um texto, ou null se não houver nenhum.
+ *
+ * Existe porque modelo de linguagem às vezes fala além do combinado: em 2026-09-26 este
+ * mesmo prompt devolveu dois objetos JSON colados e o JSON.parse direto estourou. O prompt
+ * foi ajustado para pedir um só, mas depender de o modelo obedecer sempre é frágil.
+ *
+ * Conta chaves de verdade em vez de procurar o primeiro "}" — assim uma chave dentro de um
+ * valor de texto (ex.: termos "chave } solta") não corta o objeto no lugar errado.
+ */
+function primeiroObjetoJson_(txt) {
+  var s = String(txt || '');
+  var ini = s.indexOf('{');
+  if (ini < 0) return null;
+  var nivel = 0, emTexto = false, escapado = false;
+  for (var i = ini; i < s.length; i++) {
+    var c = s.charAt(i);
+    if (emTexto) {
+      if (escapado) escapado = false;
+      else if (c === '\\') escapado = true;
+      else if (c === '"') emTexto = false;
+      continue;
+    }
+    if (c === '"') emTexto = true;
+    else if (c === '{') nivel++;
+    else if (c === '}') { nivel--; if (nivel === 0) return s.substring(ini, i + 1); }
+  }
+  return null;   // objeto começou mas nunca fechou (resposta truncada)
+}
+
+/**
+ * Descreve em palavras o item que aparece numa foto, para o app procurar essas palavras no
+ * cadastro. Recebe base64 (SEM o prefixo "data:") + mime, como o uploadImages_ já recebe.
+ *
+ * Devolve { visto, termos, texto, modelo, tokensEntrada, tokensSaida, custoUSD } ou null em
+ * QUALQUER falha — sem chave, sem imagem, HTTP ≠ 200, resposta vazia, JSON inválido, exceção.
+ * O motivo fica em IA_ULTIMO_ERRO_, mesmo padrão do tratamento de foto, e vira o _debugIA da
+ * resposta. Nunca lança: uma busca que falha não pode derrubar a requisição.
+ *
+ * Quando a IA não reconhece o objeto, ela devolve os campos VAZIOS de propósito (o prompt
+ * manda) — isso NÃO é falha, é resposta honesta. Quem chama trata como "não identifiquei".
+ *
+ * ⚠️ NÃO toca no Drive nem na planilha. A foto de busca é descartável: existe só durante esta
+ * requisição, não é salva em lugar nenhum nem vinculada a item. É requisito da feature
+ * (BFOTO-05 em .specs/features/busca-por-foto/spec.md), não detalhe de implementação.
+ */
+function descreverFotoIA_(base64, mime) {
+  try {
+    var props = PropertiesService.getScriptProperties();
+    var key = props.getProperty('GEMINI_API_KEY');
+    if (!key) { IA_ULTIMO_ERRO_ = 'sem GEMINI_API_KEY configurada'; return null; }
+    if (!base64) { IA_ULTIMO_ERRO_ = 'sem imagem recebida'; return null; }
+
+    var model = props.getProperty('GEMINI_VISION_MODEL') || GEMINI_TEXT_MODEL;
+    var url = 'https://generativelanguage.googleapis.com/v1beta/models/' +
+      model + ':generateContent?key=' + encodeURIComponent(key);
+    var payload = {
+      contents: [{
+        parts: [
+          { text: PROMPT_VISAO },
+          { inline_data: { mime_type: mime || 'image/jpeg', data: base64 } }
+        ]
+      }],
+      generationConfig: { responseMimeType: 'application/json', temperature: 0.2 }
+    };
+    var resp = UrlFetchApp.fetch(url, {
+      method: 'post', contentType: 'application/json',
+      payload: JSON.stringify(payload), muteHttpExceptions: true
+    });
+
+    var code = resp.getResponseCode();
+    if (code !== 200) {
+      IA_ULTIMO_ERRO_ = 'HTTP ' + code + ' (' + model + '): ' + resp.getContentText().substring(0, 200);
+      return null;
+    }
+
+    var json = JSON.parse(resp.getContentText());
+    var txt = json && json.candidates && json.candidates[0] && json.candidates[0].content &&
+      json.candidates[0].content.parts && json.candidates[0].content.parts[0] &&
+      json.candidates[0].content.parts[0].text;
+    if (!txt) { IA_ULTIMO_ERRO_ = 'resposta sem texto (' + model + ')'; return null; }
+
+    // Pega só o PRIMEIRO objeto JSON da resposta. Não é paranoia: em 2026-09-26 o modelo
+    // devolveu DOIS objetos colados e o JSON.parse direto estourou
+    // ("Unexpected non-whitespace character after JSON at position 114").
+    var bruto = primeiroObjetoJson_(txt);
+    if (!bruto) { IA_ULTIMO_ERRO_ = 'resposta sem objeto JSON: ' + txt.substring(0, 150); return null; }
+    var obj = JSON.parse(bruto);
+    var uso = json.usageMetadata || {};
+    var entrada = Number(uso.promptTokenCount || 0);
+    var saida = Number(uso.candidatesTokenCount || 0);
+    var custo = (entrada * GEMINI_USD_POR_MILHAO_ENTRADA + saida * GEMINI_USD_POR_MILHAO_SAIDA) / 1000000;
+
+    return {
+      visto:  String((obj && obj.visto)  || '').trim(),
+      termos: String((obj && obj.termos) || '').trim(),
+      texto:  String((obj && obj.texto)  || '').trim(),
+      modelo: model,
+      tokensEntrada: entrada,
+      tokensSaida: saida,
+      custoUSD: custo.toFixed(6)
+    };
+  } catch (e) {
+    IA_ULTIMO_ERRO_ = 'exceção: ' + e;
+    return null;
+  }
+}
+
+/**
+ * Ação `buscarPorFoto` do doPost: recebe a foto e devolve o que a IA viu mais os termos que o
+ * app vai jogar na barra de busca. Já passou por requireAuth_ no doPost, como toda ação.
+ *
+ * SEMPRE devolve resposta bem formada, inclusive na falha (ok:false + error + _debugIA), para
+ * o app poder mostrar uma mensagem clara e preservar a tela em vez de receber erro cru.
+ *
+ * Campos vazios com ok:true significam "a IA não reconheceu o objeto" — é resposta honesta,
+ * não erro; quem trata é o app.
+ *
+ * ⚠️ Nada é gravado: sem planilha, sem Drive, sem fila (BFOTO-05).
+ */
+function buscarPorFoto_(body) {
+  var img = body.image || {};
+  if (!img.data) {
+    return { ok: false, error: 'Nenhuma foto recebida.', _debugIA: 'sem imagem no corpo da requisição' };
+  }
+
+  IA_ULTIMO_ERRO_ = null;
+  var r = descreverFotoIA_(img.data, img.mime);
+  if (!r) {
+    return {
+      ok: false,
+      error: 'Não foi possível analisar a foto agora.',
+      _debugIA: IA_ULTIMO_ERRO_ || 'falhou sem motivo capturado'
+    };
+  }
+
+  return {
+    ok: true,
+    visto: r.visto,
+    termos: r.termos,
+    texto: r.texto,
+    _debugIA: 'OK ' + r.modelo + ' — ' + r.tokensEntrada + '+' + r.tokensSaida +
+      ' tokens — US$ ' + r.custoUSD
+  };
 }
 
 /**

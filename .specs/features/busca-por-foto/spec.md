@@ -359,12 +359,12 @@ no futuro — mas ela não é necessária para esta feature funcionar.
 |---|---|---|---|---|
 | BFOTO-01 | Botão de câmera na barra de busca abre a captura | P1 câmera | Design | Pending |
 | BFOTO-02 | Foto a 384 px via `compress()`, enviada em `buscarPorFoto` | P1 câmera | Design | Pending |
-| BFOTO-03 | Ação protegida por `requireAuth_` | P1 câmera | Design | Pending |
+| BFOTO-03 | Ação protegida por `requireAuth_` | P1 câmera | Execute | ✅ coberto (T6) |
 | BFOTO-04 | Sucesso preenche a barra e entra em modo foto | P1 câmera | Design | Pending |
-| BFOTO-05 | Foto descartável: sem Drive, sem planilha, sem fila | P1 descartável | Design | Pending |
+| BFOTO-05 | Foto descartável: sem Drive, sem planilha, sem fila | P1 descartável | Execute | ✅ coberto (T5/T6) |
 | BFOTO-06 | Resultado usa o `card()` normal | P1 câmera | Design | Pending |
-| BFOTO-07 | Modelo trocável por `GEMINI_VISION_MODEL` | P1 câmera | Design | Pending |
-| BFOTO-08 | Prompt ancorado, pt-br, pode responder vazio | P1 falhar bem | Design | Pending |
+| BFOTO-07 | Modelo trocável por `GEMINI_VISION_MODEL` | P1 câmera | Execute | ✅ coberto (T5) |
+| BFOTO-08 | Prompt ancorado, pt-br, pode responder vazio | P1 falhar bem | Execute | ✅ coberto (T5) |
 | BFOTO-09 | Modo foto **não** exige todas as palavras | P1 pontuação | Execute | ✅ coberto (T4) |
 | BFOTO-10 | Zero termos casados exclui o item | P1 pontuação | Execute | ✅ coberto (T4) |
 | BFOTO-11 | OCR que casa código/cód. de barras domina o topo | P1 pontuação | Execute | ✅ coberto (T4) |
@@ -375,7 +375,7 @@ no futuro — mas ela não é necessária para esta feature funcionar.
 | BFOTO-16 | Identificou mas 0 candidatos → mostra o que viu, termos editáveis | P1 falhar bem | Design | Pending |
 | BFOTO-17 | Qualquer falha → mensagem clara, tela preservada, nada gravado | P1 falhar bem | Design | Pending |
 | BFOTO-18 | Captura nova descarta resposta antiga | P1 falhar bem | Design | Pending |
-| BFOTO-19 | Diagnóstico no padrão `_debugIA` | P1 falhar bem | Design | Pending |
+| BFOTO-19 | Diagnóstico no padrão `_debugIA` | P1 falhar bem | Execute | ✅ coberto (T6) |
 | BFOTO-20 | Teto de 12 candidatos, ordenados | P1 câmera | Execute | ✅ coberto (T4) |
 | BFOTO-21 | `diagnosticarGeminiVisao()` confirma a visão antes de construir | P1 diagnóstico | Execute | ✅ Verified |
 | BFOTO-22 | `APP_VERSION` e `CACHE` sobem juntos para v38 | P1 câmera | Design | Pending |

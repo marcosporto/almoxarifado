@@ -14,7 +14,7 @@ Verifier, sensor de discriminação).
 **Spec**: `.specs/features/busca-por-foto/spec.md`
 **Design**: não há `design.md` — as decisões técnicas estão na seção "Técnico" da spec,
 seguindo a convenção das outras features deste projeto (`tratamento-foto-ia`).
-**Status**: In Progress — T1 ✅ (portão aberto: HTTP 200)
+**Status**: In Progress — Fases 0, 1 e 2 concluídas (T1-T6). Falta o frontend (T7-T9) e o fechamento (T10-T11).
 
 ---
 
@@ -287,15 +287,31 @@ tratamento de falha silenciosa), o espírito ancorado do `PROMPT_KW`, o padrão 
 - Skill: NONE
 
 **Done when**:
-- [ ] Prompt ancorado: descreve só o que está na foto, pt-br minúsculo, lê texto/números
+- [x] Prompt ancorado: descreve só o que está na foto, pt-br minúsculo, lê texto/números
       impressos, e **responde vazio quando não souber** (nunca chuta marca/modelo/voltagem)
-- [ ] Modelo lido de `GEMINI_VISION_MODEL` com padrão `gemini-2.5-flash-lite` (BFOTO-07)
-- [ ] Resposta forçada em JSON, como nas palavras-chave
-- [ ] Qualquer falha (sem chave, HTTP ≠ 200, JSON inválido, exceção) devolve `null` e registra
+- [x] Modelo lido de `GEMINI_VISION_MODEL` com padrão `gemini-2.5-flash-lite` (BFOTO-07)
+- [x] Resposta forçada em JSON, como nas palavras-chave
+- [x] Qualquer falha (sem chave, HTTP != 200, JSON inválido, exceção) devolve `null` e registra
       o motivo — **nunca lança**
-- [ ] ⛔ A função **não menciona `DriveApp`** nem escreve em célula alguma (BFOTO-05) —
-      conferir por busca no arquivo
-- [ ] Verificação manual: rodar com uma foto de teste e ver `visto`/`termos` plausíveis no Log
+- [x] ⛔ A função **não menciona `DriveApp`** nem escreve em célula alguma (BFOTO-05) —
+      conferido por busca no arquivo
+- [x] Verificação manual: rodado com foto real, `visto` e `termos` plausíveis no Log
+
+**DEFEITO ENCONTRADO E CORRIGIDO na 1a rodada:** o prompt terminava com **dois** exemplos de
+JSON (o normal e o de "não reconheci"); o modelo copiou o padrão e devolveu dois objetos
+colados -> `SyntaxError: Unexpected non-whitespace character after JSON at position 114`.
+Duas correções, não uma: (1) o prompt deixou de conter exemplo de JSON literal — os campos
+são descritos em texto; (2) a resposta passa por `primeiroObjetoJson_()`, que recorta o
+primeiro objeto contando chaves de verdade (um `}` dentro de string não corta errado).
+Ajustar só o prompt seria mitigar: é a mesma lição do `STATE.md` de 26/07 — quando o defeito
+é "a IA não faz o combinado", o texto do prompt não é a garantia. `primeiroObjetoJson_` foi
+verificado localmente (é função pura) contra a resposta que falhou e mais 8 casos: dois
+objetos colados, texto conversado em volta, `}` dentro de string, objeto aninhado, truncado,
+sem JSON, vazio e `null` — todos corretos.
+
+**Resultado medido (2026-09-26 23:49):** `OK gemini-2.5-flash-lite - 564+39 tokens -
+US$ 0,000072`. Foto do item 14591011 -> visto: *"rodo limpador de vidros com cabo"*,
+termos: *"rodo limpador vidro cabo limpeza azul"*.
 
 **Tests**: none (ver matriz — backend não carrega no Node)
 **Gate**: manual
@@ -317,13 +333,43 @@ tratamento de falha silenciosa), o espírito ancorado do `PROMPT_KW`, o padrão 
 - Skill: NONE
 
 **Done when**:
-- [ ] `doPost` reconhece `action === 'buscarPorFoto'` e responde JSON
-- [ ] Passa por `requireAuth_` como todas as outras ações (BFOTO-03)
-- [ ] Resposta traz `_debugIA` com modelo, custo e motivo da falha (BFOTO-19)
-- [ ] Falha da IA devolve resposta **bem formada** com o motivo, não erro cru (BFOTO-17)
-- [ ] ⛔ Nada é gravado: nenhuma escrita na planilha, nenhum arquivo no Drive (BFOTO-05)
-- [ ] Verificação manual: 3 chamadas seguidas e a pasta "Almoxarifado UDESC - Imagens" segue
-      com a mesma contagem de arquivos; coluna `Imagens` inalterada
+- [x] `doPost` reconhece `action === 'buscarPorFoto'` e responde JSON
+- [x] Passa por `requireAuth_` como todas as outras ações (BFOTO-03)
+- [x] Resposta traz `_debugIA` com modelo, tokens/custo e motivo da falha (BFOTO-19)
+- [x] Falha da IA devolve resposta **bem formada** com o motivo, não erro cru (BFOTO-17)
+- [x] ⛔ Nada é gravado: nenhuma escrita na planilha, nenhum arquivo no Drive (BFOTO-05)
+- [x] Verificação: 3 execuções do diagnóstico (23:34, 23:40, 23:49) e a pasta de imagens
+      seguiu com a mesma foto de teste; nenhuma coluna alterada
+
+**Defeito de desempenho encontrado no `doPost` e corrigido:** ele pegava o **lock de script**
+antes de tudo. Com a ação nova lá dentro, cada busca (2-4 s esperando a IA) travaria a
+sincronização de **todos** os usuários. O `waitLock` passou para depois da ação
+`buscarPorFoto`, que não grava nada. Efeito colateral bom: `JSON.parse` e `requireAuth_`
+também saíram do lock — são leituras, e a contenção cai. Toda a gravação continua dentro.
+
+**VALIDAÇÃO DA ESTRATÉGIA com dados reais** (o teste que mais importa nesta feature). Item
+14591011 = `RODO DE BORRACHA - RODO PARA VIDRO`, palavras-chave `rodo de borracha, rodo para
+vidro, limpeza de vidros, janela, espátula`. Os termos da IA casaram 3 de 6 (`rodo`, `vidro`,
+`limpeza`) e, rodando `photoScore_` contra os concorrentes reais da planilha:
+
+| # | Nota | Item |
+|---|---|---|
+| **1** | **76** | **14591011 RODO DE BORRACHA — o correto** |
+| 2 | 44 | 14435001 LIMPA VIDRO |
+| 3 | 44 | 14613022 VASSOURA COM CABO |
+| 4 | 44 | 14346046 DETERGENTE LIMPADOR MULTIUSO |
+
+1o lugar com margem folgada — critério de sucesso da spec (entre os 3 primeiros) **atendido**.
+E os mesmos termos na busca digitada devolvem **NENHUM resultado**: é o defeito que a feature
+corrige, agora medido em dado real e não só em teste sintético.
+
+**Adição de escopo declarada:** o diagnóstico ganhou `linhaDoItem_()` e `semAcento_()` para
+conferir os termos contra a linha real do item (o nome do arquivo começa com o código). Não
+estava no plano; entrou porque era a única forma barata de responder "os termos achariam o
+item?" antes de construir o frontend em cima da suposição. `linhaDoItem_` lê sem efeito
+colateral — de propósito não usa `getSheet_()`, que cria e normaliza cabeçalhos.
+`semAcento_` duplica a ideia do `norm()` do frontend porque o `.gs` não compartilha código
+com o `index.html`; está documentado no arquivo.
 
 **Tests**: none (ver matriz)
 **Gate**: manual
