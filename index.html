@@ -40,8 +40,14 @@
   .icon-btn{ margin-left:auto; background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.35); color:#fff; width:38px; height:38px; border-radius:9px; font-size:17px; cursor:pointer; flex:0 0 auto; }
 
   .search-wrap{ position:relative; margin-top:10px; }
-  #search-box{ width:100%; padding:12px 52px 12px 14px; border-radius:10px; border:none; font-size:16px; outline:none; font-family:inherit; }
+  #search-box{ width:100%; padding:12px 96px 12px 14px; border-radius:10px; border:none; font-size:16px; outline:none; font-family:inherit; }
   .search-scan{ position:absolute; right:6px; top:50%; transform:translateY(-50%); width:38px; height:38px; border:none; background:var(--verde); color:#fff; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  /* Buscar por foto: fica à esquerda do leitor de código, com o mesmo tamanho e cor. */
+  .search-foto{ position:absolute; right:50px; top:50%; transform:translateY(-50%); width:38px; height:38px; border:none; background:var(--verde); color:#fff; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .search-foto.off{ opacity:.4; cursor:not-allowed; }      /* sem internet: a IA está na nuvem */
+  .search-foto.busy{ opacity:.55; cursor:progress; }
+  #foto-aviso{ margin-top:8px; font-size:13px; line-height:1.35; background:rgba(255,255,255,.16); color:#fff; padding:8px 10px; border-radius:8px; display:flex; gap:8px; align-items:flex-start; }
+  #foto-aviso .fa-x{ margin-left:auto; flex:0 0 auto; background:none; border:none; color:#fff; font-size:15px; line-height:1; cursor:pointer; opacity:.65; padding:2px 4px; }
 
   /* ====== Status / sync ====== */
   #status-bar{ background:#fff; padding:8px 14px; font-size:12.5px; display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--cinza-100); position:sticky; top:0; z-index:20; }
@@ -200,7 +206,11 @@
   </div>
   <div class="search-wrap">
     <input type="search" id="search-box" placeholder="Buscar: descrição, código ou código de barras…" oninput="onSearchInput()">
+    <label class="search-foto" id="btn-foto-busca" title="Buscar item pela foto"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15a5 5 0 1 1 0-10 5 5 0 0 1 0 10zm0-2a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg>
+      <input type="file" accept="image/*" capture="environment" style="display:none" id="foto-busca-input" onchange="buscarPorFoto(this)">
+    </label>
     <button class="search-scan" onclick="scanSearch()" title="Ler código para buscar"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 6.5v3h-3v-3h3M11 5H5v6h6V5zm-1.5 9.5v3h-3v-3h3M11 13H5v6h6v-6zm6.5-6.5v3h-3v-3h3M19 5h-6v6h6V5zm-6 8h1.5v1.5H13V13zm1.5 1.5H16V16h-1.5v-1.5zM16 13h1.5v1.5H16V13zm-3 3h1.5v1.5H13V16zm1.5 1.5H16V19h-1.5v-1.5zM16 16h1.5v1.5H16V16zm1.5-1.5H19V16h-1.5v-1.5zm0 3H19V19h-1.5v-1.5zM22 7h-2V4h-3V2h5v5zm0 15v-5h-2v3h-3v2h5zM2 22h5v-2H4v-3H2v5zM2 2v5h2V4h3V2H2z"/></svg></button>
+    <div id="foto-aviso" style="display:none"><span id="foto-aviso-txt"></span><button class="fa-x" onclick="limparBuscaFoto()" title="Limpar busca por foto">✕</button></div>
   </div>
 </header>
 
@@ -1141,6 +1151,77 @@ function scanSearch(){
     el.value=text.trim();
     render();
   }, SCAN_TEXTS.busca);
+}
+
+/* ---------- Buscar item pela foto (câmera + IA) ---------- */
+// Estado do "modo foto": { termos, visto } enquanto a lista mostra candidatos de uma foto,
+// null quando a busca é a digitada de sempre. Quem apaga é limparBuscaFoto() ou digitar.
+let fotoModo = null;
+// Cada captura recebe um número. Se a pessoa fotografa de novo antes de a primeira responder,
+// a resposta velha chega depois e seria aplicada por cima — o número descarta a atrasada.
+let _fotoBuscaSeq = 0;
+
+function avisoFoto(texto, mostrarX){
+  const box=document.getElementById('foto-aviso');
+  document.getElementById('foto-aviso-txt').textContent = texto;
+  box.querySelector('.fa-x').style.display = mostrarX ? '' : 'none';
+  box.style.display = texto ? 'flex' : 'none';
+}
+function limparBuscaFoto(){
+  fotoModo=null;
+  avisoFoto('');
+  document.getElementById('search-box').value='';
+  render();
+}
+function _fotoOcupado(on){
+  document.getElementById('btn-foto-busca').classList.toggle('busy', on);
+}
+
+// Fluxo: tira a foto → comprime → manda ao backend → a IA devolve palavras → a busca procura.
+// Espelha o scanSearch() (ler código → preencher a busca), com a IA no meio.
+async function buscarPorFoto(input){
+  const file = input && input.files && input.files[0];
+  if(input) input.value='';            // permite escolher a MESMA foto de novo depois
+  if(!file) return;
+
+  // A IA está na nuvem: sem internet não há como reconhecer a foto (BFOTO-14).
+  if(!navigator.onLine){
+    avisoFoto('A busca por foto precisa de internet. Sem rede, use a busca por nome ou o leitor de código.', true);
+    return;
+  }
+  if(!scriptUrl){
+    avisoFoto('Configure a URL do backend no ⚙️ antes de usar a busca por foto.', true);
+    return;
+  }
+
+  const seq = ++_fotoBuscaSeq;
+  _fotoOcupado(true);
+  avisoFoto('Analisando a foto…', false);
+  try{
+    // 768 px: mesmo custo de 258 tokens que 384 px (a cobrança fatia em blocos de 768),
+    // com o dobro da resolução para a IA conseguir ler etiqueta.
+    const dataUrl = await compress(file, 768, 0.6);
+    if(!dataUrl) throw new Error('não consegui ler a imagem do arquivo');
+    const b64 = dataUrl.split(',')[1] || '';
+
+    const res = await fetch(scriptUrl, { method:'POST', body: JSON.stringify({
+      action:'buscarPorFoto', token: authToken(), image:{ data:b64, mime:'image/jpeg' }
+    })});
+    const json = await res.json();
+    if(seq !== _fotoBuscaSeq) return;                 // chegou tarde: já há captura mais nova
+    if(json._debugIA) console.log('[busca por foto]', json._debugIA);
+    if(!json.ok) throw new Error(json.error || 'falha no servidor');
+
+    fotoModo = { termos: json.termos || '', visto: json.visto || '' };
+    document.getElementById('search-box').value = [json.termos, json.texto].filter(Boolean).join(' ').trim();
+    render();
+  }catch(e){
+    if(seq !== _fotoBuscaSeq) return;
+    fotoModo = null;
+    avisoFoto('Não foi possível analisar a foto: ' + (e.message || e), true);
+  }finally{
+    if(seq === _fotoBuscaSeq) _fotoOcupado(false);
+  }
 }
 
 /* ---------- Visualizador de imagem (lightbox) ---------- */

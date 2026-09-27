@@ -380,10 +380,10 @@ com o `index.html`; está documentado no arquivo.
 
 ### T7: Botão de câmera na barra de busca
 
-**What**: Adicionar o botão, capturar a foto, comprimir a 384 px, enviar e mostrar carregando.
+**What**: Adicionar o botão, capturar a foto, comprimir a 768 px, enviar e mostrar carregando.
 **Where**: `index.html`
 **Depends on**: T6
-**Reuses**: `scanSearch()` como molde do fluxo; `compress()` (só muda o tamanho para 384);
+**Reuses**: `scanSearch()` como molde do fluxo; `compress()` (só muda o tamanho para 768);
 `SCAN_TEXTS` para título/dica; o `fetch` autenticado que as outras ações já usam
 **Requirement**: BFOTO-01, BFOTO-02
 
@@ -392,11 +392,21 @@ com o `index.html`; está documentado no arquivo.
 - Skill: NONE
 
 **Done when**:
-- [ ] Botão de câmera na barra de busca, ao lado do de leitura de código que já existe
-- [ ] Abre a câmera traseira (`capture="environment"`) com título e dica próprios em `SCAN_TEXTS`
-- [ ] Foto comprimida com `compress(file, 384, 0.6)` (BFOTO-02)
-- [ ] Estado de carregando visível enquanto espera a resposta
-- [ ] Verificação manual no celular: botão aparece, câmera abre, carregando aparece
+- [x] Botão de câmera na barra de busca, à esquerda do de leitura de código que já existe
+- [x] Abre a câmera traseira (`capture="environment"`)
+- [x] Foto comprimida com `compress(file, 768, 0.6)` (BFOTO-02)
+- [x] Estado de carregando visível enquanto espera ("Analisando a foto…" + botão opaco)
+- [ ] ⏳ Verificação manual no celular — só possível depois de publicar (T10)
+
+**Desvios do planejado, declarados:**
+1. `SCAN_TEXTS` **não** foi usado: ele serve ao modal do leitor de QR (`startScan`), e a foto
+   usa o seletor nativo do sistema (`<input type=file capture=environment>`), que não tem
+   título nem dica nossos. Mesmo mecanismo do botão de foto que já existe no card.
+2. **BFOTO-18 (descartar resposta atrasada) entrou aqui**, não na T9 como planejado: é parte
+   da mecânica da requisição (um contador `_fotoBuscaSeq` por captura), e deixar para depois
+   significaria commitar uma corrida conhecida.
+3. Entrou também o aviso de offline e o de URL não configurada — são as duas guardas que
+   precisam existir **antes** do `fetch`, não depois.
 
 **Tests**: none (ver matriz — UI sem harness de DOM)
 **Gate**: manual

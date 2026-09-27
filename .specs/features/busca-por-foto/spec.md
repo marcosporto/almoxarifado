@@ -51,7 +51,7 @@ Toda ambiguidade está resolvida aqui — nada fica implícito.
 | Comportamento quando falha | **Mostrar o que a IA viu + deixar editar** | O usuário entende *por que* falhou e continua na mão a partir dali, em vez de levar um "nada encontrado" opaco. | ✅ sim |
 | Onde a chamada à IA acontece | **No backend (Apps Script)** | A `GEMINI_API_KEY` não pode aparecer no `index.html`, que é público. Mesma regra da R7 do tratamento de foto. | ✅ sim (regra do projeto) |
 | Modelo | `gemini-2.5-flash-lite`, o **mesmo** das palavras-chave | Aceita imagem na entrada; é o caminho de TEXTO, que nunca sofreu o bug de cota que matou o tratamento de foto. Trocável por propriedade (BFOTO-07). | ✅ **CONFIRMADO em 2026-09-26**: HTTP 200 na conta real, 258 tokens de imagem, descrição correta de foto do almoxarifado |
-| Tamanho da foto enviada | **384 px**, reusando `compress()` | Em até 384 px a cobrança é fixa em 258 tokens. Para "isso é uma caneta azul" não precisa de nitidez de catálogo. | ✅ sim |
+| Tamanho da foto enviada | **768 px**, reusando `compress()` | Corrigido de 384 para 768 em 2026-09-26, depois de a T1 medir o custo real. A cobrança fatia a imagem em blocos de 768x768 a 258 tokens cada, então **768 px custa o mesmo que 384 px** (um bloco só) e entrega o dobro da resolução linear — o que importa para o OCR de etiqueta (BFOTO-11). A escolha anterior jogava resolução fora de graça, por medo de custo infundado. | ✅ sim |
 | Interruptor liga/desliga (tipo `TRATAR_FOTO`) | **Não criar** | Aqui nada é gravado nem alterado: o pior caso é uma busca falhar. A ausência da `GEMINI_API_KEY` já desliga naturalmente, com aviso. | assumido |
 | Teto de candidatos exibidos | **12** | Acima disso é ruído: o objetivo é escolher entre poucos, não filtrar uma lista. | assumido |
 | Limite de uso / custo | **Sem controle** | Um único usuário a ~US$ 0,0001 por busca. Criar quota seria complexidade sem risco correspondente. | assumido |
@@ -77,7 +77,7 @@ depender de código de barras.
 
 1. WHEN o usuário toca no botão de câmera da barra de busca THEN o sistema SHALL abrir a
    captura de foto da câmera traseira, com título e dica próprios (padrão `SCAN_TEXTS`).
-2. WHEN a foto é capturada THEN o sistema SHALL comprimi-la a **384 px** via `compress()` e
+2. WHEN a foto é capturada THEN o sistema SHALL comprimi-la a **768 px** via `compress()` e
    enviá-la ao backend na ação `buscarPorFoto`, exibindo estado de carregamento enquanto espera.
 3. WHEN o backend recebe a foto THEN o sistema SHALL exigir crachá válido (`requireAuth_`),
    como em toda ação, antes de chamar a IA.
@@ -228,7 +228,7 @@ da imagem de teste.
 
 | Dimensão | Resolução |
 |---|---|
-| Validação e limites de entrada | BFOTO-02: 384 px, JPEG, uma foto por busca |
+| Validação e limites de entrada | BFOTO-02: 768 px, JPEG, uma foto por busca |
 | Falha e falha parcial | BFOTO-15/16/17: sempre degrada para busca manual, tela preservada |
 | Idempotência / repetição | N/A — busca é leitura pura; repetir é inofensivo e nada é gravado |
 | Autenticação e limites de uso | BFOTO-03 (`requireAuth_`); quota: N/A, ver Pressupostos |
@@ -245,7 +245,7 @@ da imagem de teste.
 ### Fluxo
 
 ```
-[câmera] --foto 384px--> index.html --POST buscarPorFoto--> apps-script.gs
+[câmera] --foto 768px--> index.html --POST buscarPorFoto--> apps-script.gs
                                                                  |
                                             GEMINI_API_KEY (já existe)
                                                                  v
@@ -267,8 +267,9 @@ da imagem de teste.
 - **Prompt ancorado**, no espírito do `PROMPT_KW`: descrever o que **está** na foto, em
   português minúsculo; ler texto/números impressos se houver; **responder vazio quando não
   souber**, nunca chutar marca, modelo ou voltagem.
-- **Custo:** imagem é cobrada como texto no flash-lite. Até 384 px = 258 tokens fixos;
-  com o prompt, ~400 tokens por busca ≈ **US$ 0,00004**. Mil buscas ≈ US$ 0,04.
+- **Custo medido** (T5/T6, 2026-09-26): **564 tokens de entrada + 39 de saída = US$ 0,000072**
+  por busca. Mil buscas ≈ US$ 0,07. A imagem entra por 258 tokens (um bloco de 768x768); o
+  resto é o prompt, que é mais longo do que eu havia estimado.
 - **Nada de `DriveApp`** nesta função (BFOTO-05 depende disso).
 
 ### O que muda em cada arquivo
@@ -358,7 +359,7 @@ no futuro — mas ela não é necessária para esta feature funcionar.
 | ID | Requisito | Story | Fase | Situação |
 |---|---|---|---|---|
 | BFOTO-01 | Botão de câmera na barra de busca abre a captura | P1 câmera | Design | Pending |
-| BFOTO-02 | Foto a 384 px via `compress()`, enviada em `buscarPorFoto` | P1 câmera | Design | Pending |
+| BFOTO-02 | Foto a 768 px via `compress()`, enviada em `buscarPorFoto` | P1 câmera | Design | Pending |
 | BFOTO-03 | Ação protegida por `requireAuth_` | P1 câmera | Execute | ✅ coberto (T6) |
 | BFOTO-04 | Sucesso preenche a barra e entra em modo foto | P1 câmera | Design | Pending |
 | BFOTO-05 | Foto descartável: sem Drive, sem planilha, sem fila | P1 descartável | Execute | ✅ coberto (T5/T6) |
