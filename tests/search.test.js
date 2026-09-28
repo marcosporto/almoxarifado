@@ -235,10 +235,76 @@ describe('searchFilterFoto_ — lista de candidatos da busca por foto', () => {
     );
   });
 
-  test('quem casou o número lido pelo OCR vem na frente', () => {
+  // COMPORTAMENTO ALTERADO em 2026-09-27, a pedido do usuário. Antes este teste esperava
+  // ['99','300'] — o item do OCR em primeiro, os outros candidatos abaixo. Ao fotografar um
+  // código de barras no uso real, ele recebeu o item certo em primeiro E 11 candidatos
+  // irrelevantes, e pediu o comportamento de leitor de código: código e código de barras são
+  // identificadores ÚNICOS, então não há o que ranquear ao lado.
+  test('identificador lido na etiqueta manda sozinho: mostra SÓ aquele item', () => {
     assert.deepEqual(
       searchFilterFoto_([CANETA_TEXTO, CANETA], '7891234 caneta').map(i => i.codigo),
-      ['99', '300']
+      ['99']
+    );
+  });
+
+  test('o identificador dispensa o mínimo de palavras: uma só basta', () => {
+    // Só o número casa; "codigo", "barras" e "etiqueta" não existem no item. Sem a exceção,
+    // a regra do mínimo cortaria justamente o item certo.
+    assert.deepEqual(
+      searchFilterFoto_([CANETA_TEXTO, CANETA], 'codigo barras etiqueta 7891234').map(i => i.codigo),
+      ['99']
+    );
+  });
+
+  test('número curto NÃO é tratado como identificador, para não sequestrar o resultado', () => {
+    // CABO tem código "500". Se "500" (de "500 ml") valesse como identificador, ele sozinho
+    // apagaria todos os outros candidatos da lista.
+    const achados = searchFilterFoto_([CABO, PAPEL], '500 papel rolos').map(i => i.codigo);
+    assert.ok(achados.includes('150'), 'o papel deveria continuar na lista');
+    assert.notDeepEqual(achados, ['500'], 'o código curto não pode virar resposta única');
+  });
+});
+
+describe('searchFilterFoto_ — mínimo de palavras casadas (corta o ruído)', () => {
+  // Caso real de 2026-09-27: a foto de um mouse trouxe SACO PLASTICO P/LIXO PRETO em primeiro
+  // lugar, porque "preto" casou e mais nada. Uma palavra genérica sozinha é coincidência, não
+  // evidência — e o mouse nem existe no cadastro, então o certo é não devolver nada.
+  const SACO_PRETO = {
+    codigo: '15083023',
+    descricao: 'SACO PLASTICO P/LIXO - PACOTE C/100 UNID. 30L, PRETO',
+    codigoBarras: '',
+    palavrasChave: 'saco de lixo, plastico, preto, 30 litros',
+  };
+
+  test('item que casa UMA palavra genérica é cortado quando a IA deu 3 ou mais', () => {
+    const termos = 'mouse trackball logitech preto botoes conector';
+    assert.ok(photoScore_(SACO_PRETO, norm(termos).split(' ')) > 0, 'ainda pontua...');
+    assert.deepEqual(searchFilterFoto_([SACO_PRETO], termos), [], '...mas não vira candidato');
+  });
+
+  test('item que casa duas palavras continua sendo candidato', () => {
+    assert.deepEqual(
+      searchFilterFoto_([SACO_PRETO], 'saco preto plastico grande').map(i => i.codigo),
+      ['15083023']
+    );
+  });
+
+  test('com 1 ou 2 palavras, uma casada basta — senão seria a regra E de volta', () => {
+    // O modo foto existe justamente para não exigir todas as palavras. Se a IA devolveu
+    // pouca coisa, exigir 2 de 2 recriaria o defeito que a feature corrige.
+    assert.deepEqual(searchFilterFoto_([SACO_PRETO], 'preto').map(i => i.codigo), ['15083023']);
+    assert.deepEqual(searchFilterFoto_([SACO_PRETO], 'preto geladeira').map(i => i.codigo), ['15083023']);
+  });
+
+  test('a regra não afeta a busca do rodo, que já funcionava', () => {
+    // Regressão do caso medido em dado real: os três casam 2 ou mais palavras.
+    const RODO = { codigo: '14591011', descricao: 'RODO DE BORRACHA - RODO PARA VIDRO', codigoBarras: '',
+      palavrasChave: 'rodo de borracha, rodo para vidro, limpeza de vidros, janela, espatula' };
+    const VASSOURA = { codigo: '14613022', descricao: 'VASSOURA - DE PALHA CINCO FIOS COM CABO', codigoBarras: '',
+      palavrasChave: 'vassoura, palha, cinco fios, cabo, limpeza, chao' };
+    assert.deepEqual(
+      searchFilterFoto_([VASSOURA, RODO], 'rodo limpador vidro cabo limpeza azul').map(i => i.codigo),
+      ['14591011', '14613022']
     );
   });
 

@@ -50,6 +50,22 @@
   // escolher entre poucos, não filtrar uma lista grande.
   const TETO_CANDIDATOS_FOTO = 12;
 
+  // Quantas palavras da IA um item precisa casar para virar candidato.
+  // Nasceu de um caso real (2026-09-27): a foto de um mouse trouxe SACO PLASTICO P/LIXO
+  // PRETO em primeiro, porque "preto" casou e mais nada. Uma palavra genérica sozinha não é
+  // evidência de que é o item — é coincidência. Com o mínimo em 2, aquela busca passa a não
+  // devolver nada, que é a resposta honesta: o mouse não está cadastrado.
+  const MIN_TERMOS_FOTO = 2;
+
+  // Um termo só conta como IDENTIFICADOR (código ou código de barras) se for numérico e
+  // suficientemente longo. Os códigos internos têm 7 a 9 dígitos e os de barras 12 a 13;
+  // sem este piso, um termo curto como "500" (de "500ml") casaria com o código de um item
+  // qualquer e sequestraria o resultado inteiro.
+  const MIN_DIGITOS_IDENTIFICADOR = 6;
+  function pareceIdentificador_(t) {
+    return t.length >= MIN_DIGITOS_IDENTIFICADOR && /^[0-9]+$/.test(t);
+  }
+
   // Nota de relevância quando as palavras vieram da IA, não do usuário.
   //
   // A DIFERENÇA em relação a searchScore_ é proposital e é o motivo desta função existir:
@@ -64,18 +80,27 @@
   // O código é comparado com cada TERMO (e não com a consulta inteira, como em searchScore_)
   // porque a IA devolve uma lista de termos: se o OCR leu o código de barras da etiqueta, ele
   // chega como um termo no meio dos outros, e casar nele é definitivo.
-  function photoScore_(it, tokens) {
+  // Avalia um item contra os termos e devolve, além da nota, o que a filtragem precisa saber:
+  // quantos termos casaram e se algum deles casou um identificador (código ou código de barras).
+  function photoDetalhe_(it, tokens) {
     const desc = norm(it.descricao), cod = norm(it.codigo), bar = norm(it.codigoBarras), kw = norm(it.palavrasChave);
-    let s = 0, casaram = 0;
+    let s = 0, casaram = 0, identificador = false;
     for (const t of tokens) {
       let ganho = 0;
-      if (cod === t || bar === t) ganho += 10000;                                            // OCR leu o identificador
+      if (cod === t || bar === t) {                                                          // OCR leu o identificador
+        ganho += 10000;
+        if (pareceIdentificador_(t)) identificador = true;
+      }
       if (new RegExp('(^|[^a-z0-9])' + escapeRe_(t) + '([^a-z0-9]|$)').test(desc)) ganho += 20; // palavra inteira
       else if (desc.includes(t)) ganho += 5;                                                  // pedaço
       if (kw.includes(t)) ganho += 12;                                                        // palavra-chave
       if (ganho > 0) { s += ganho; casaram++; }
     }
-    return casaram === 0 ? -1 : s;
+    return { s: casaram === 0 ? -1 : s, casaram: casaram, identificador: identificador };
+  }
+
+  function photoScore_(it, tokens) {
+    return photoDetalhe_(it, tokens).s;
   }
 
   // Candidatos da busca por foto: filtra, ordena do mais provável ao menos e corta no teto.
@@ -88,8 +113,25 @@
     const q = norm(raw);
     const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
     if (!tokens.length) return [];
-    return list.map(it => ({ it, s: photoScore_(it, tokens) }))
-      .filter(x => x.s >= 0).sort((a, b) => b.s - a.s).slice(0, TETO_CANDIDATOS_FOTO).map(x => x.it);
+
+    const avaliados = list.map(it => ({ it, d: photoDetalhe_(it, tokens) })).filter(x => x.d.s >= 0);
+
+    // Se a IA leu um identificador na etiqueta, isso é resposta, não palpite: código e código
+    // de barras são únicos. Mostrar "outros candidatos" ao lado só polui — foi a reclamação
+    // real de quem fotografou um código de barras e recebeu 12 itens (2026-09-27). Aqui a foto
+    // da etiqueta passa a se comportar como o leitor de código de barras.
+    const porIdentificador = avaliados.filter(x => x.d.identificador);
+    if (porIdentificador.length) {
+      return porIdentificador.sort((a, b) => b.d.s - a.d.s).map(x => x.it);
+    }
+
+    // Sem identificador, exige um mínimo de palavras casadas (ver MIN_TERMOS_FOTO) — mas só
+    // quando a IA deu palavras o bastante para isso significar alguma coisa. Com 1 ou 2
+    // palavras, exigir 2 seria a regra E de volta, que é justamente o que o modo foto existe
+    // para não ter. Na prática o prompt pede de 3 a 8 palavras, então o caminho comum é 2.
+    const minimo = tokens.length >= 3 ? MIN_TERMOS_FOTO : 1;
+    return avaliados.filter(x => x.d.casaram >= minimo)
+      .sort((a, b) => b.d.s - a.d.s).slice(0, TETO_CANDIDATOS_FOTO).map(x => x.it);
   }
 
   const api = { searchScore_, searchFilter_, photoScore_, searchFilterFoto_ };
